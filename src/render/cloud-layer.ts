@@ -4,10 +4,13 @@ import { Fn, mix, texture, vec2, vec3, vec4, wgslFn } from 'three/tsl';
 export const CLOUD_ALTITUDE_M = 8_000;
 export const CLOUD_EQUATORIAL_RADIUS_M = 6_378_137 + CLOUD_ALTITUDE_M;
 export const CLOUD_POLAR_RADIUS_M = 6_356_752.314245179 + CLOUD_ALTITUDE_M;
-export const CLOUD_REGION_BOUNDS_DEG = [-130.66666666666666, 29.1, -113.6, 46.166666666666664] as const;
+export const CLOUD_REGION_BOUNDS_DEG = [-131.25, 23, -114, 52] as const;
 
 /** A single ellipsoidal layer, not measured cloud heights or a volume model.
- * Axes are WGS84 semiaxes + 8 km. Rays and returned ECEF points use meters. */
+ * Axes are WGS84 semiaxes + 8 km. Rays and returned ECEF points use meters.
+ * Misses retain a projected closest point on the shell for continuous UVs;
+ * w=0 alone marks the miss. This prevents unrelated sky UVs corrupting the
+ * implicit texture derivatives of adjacent fragments along the cloud limb. */
 export const cloudIntersectionWGSL = /* wgsl */ `
 fn cloudShellHit(originM: vec3f, ray: vec3f) -> vec4f {
   let equatorialM = 6386137.0;
@@ -18,16 +21,18 @@ fn cloudShellHit(originM: vec3f, ray: vec3f) -> vec4f {
   let b = dot(origin, direction);
   let c = dot(origin, origin) - 1.0;
   let discriminant = b * b - a * c;
-  if (discriminant < 0.0) { return vec4f(0.0); }
+  let closest = origin + direction * max(0.0, -b / a);
+  let missPoint = normalize(closest) * radii * equatorialM;
+  if (discriminant < 0.0) { return vec4f(missPoint, 0.0); }
   let root = sqrt(max(0.0, discriminant));
   let q = -b - select(-root, root, b >= 0.0);
-  if (abs(q) < 1e-12) { return vec4f(0.0); }
+  if (abs(q) < 1e-12) { return vec4f(missPoint, 0.0); }
   let first = q / a;
   let second = c / q;
   let near = min(first, second);
   let far = max(first, second);
   let distanceM = select(far, near, near > 0.0) * equatorialM;
-  if (distanceM <= 0.0) { return vec4f(0.0); }
+  if (distanceM <= 0.0) { return vec4f(missPoint, 0.0); }
   return vec4f(originM + ray * distanceM, distanceM);
 }`;
 
@@ -54,9 +59,10 @@ const cloudUV = wgslFn(cloudCoordinatesWGSL);
 type DirectionNode = Node<'vec3'>;
 
 /** Static NASA 2001 cloud imagery is a display-opacity proxy, not a forecast
- * or calibrated optical depth. The global map already has its display toe;
- * the original regional crop needs that transfer exactly once. Both inputs
- * must retain north-up TextureLoader orientation, like the other Earth maps. */
+ * or calibrated optical depth. Both assets have the documented display toe
+ * applied to native source texels before reduction/mip generation. Applying
+ * that nonlinear transfer after sampling would change coverage with mip level.
+ * Retain north-up TextureLoader orientation, like the other Earth maps. */
 export function createCloudLayer(globalMap: Texture, regionalMap: Texture) {
   globalMap.colorSpace = NoColorSpace;
   regionalMap.colorSpace = NoColorSpace;
@@ -71,9 +77,7 @@ export function createCloudLayer(globalMap: Texture, regionalMap: Texture) {
     const regionalUV = geographic.sub(southwest).div(northeast.sub(southwest));
     const edge = geographic.sub(southwest).min(northeast.sub(geographic));
     const feather = edge.x.min(edge.y).smoothstep(0, 0.25);
-    const original = regionalNode.sample(regionalUV).r.clamp(0, 1);
-    const toe = original.mul(255 / 64).min(1);
-    const regionalOpacity = original.mul(toe.mul(toe).mul(toe.mul(-2).add(3)));
+    const regionalOpacity = regionalNode.sample(regionalUV).r;
     return mix(globalNode.sample(coords).r, regionalOpacity, feather).clamp(0, 1);
   })();
 
@@ -85,7 +89,8 @@ export function createCloudLayer(globalMap: Texture, regionalMap: Texture) {
     opacity,
     normal,
     /** Nearest positive cloud-shell intersection, vec4(ECEF meters, distance meters).
-     * No hit returns zero. Compare distance with a ground hit before compositing. */
+     * A miss has w=0 and a shell proxy in xyz. Compare distance with a ground
+     * hit before compositing; sample xyz unconditionally for stable mipmaps. */
     intersect: (originECEF: DirectionNode, unitRay: DirectionNode) =>
       vec4(cloudHit(originECEF, unitRay) as ReturnType<typeof vec4>),
     /** Direct Lambert cosine only; caller supplies atmospheric attenuation,

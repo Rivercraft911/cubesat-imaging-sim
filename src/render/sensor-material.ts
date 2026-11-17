@@ -144,10 +144,9 @@ export function makeSensorMaterial(
         const sunCos = normal.dot(u.sun).toVar();
         const cityLights = earthNightColor(night, westernNight, coords).toVar();
         const cloud = cloudLayer.intersect(u.origin, ray).toVar();
-        const cloudPoint = cloud.w
-          .greaterThan(0)
-          .select(cloud.xyz, vec3(6386137, 0, 0));
-        const cloudOpacity = cloudLayer.opacity(cloudPoint).mul(0.82).toVar();
+        // Miss rays retain a continuous tangent proxy. Replacing them with a
+        // fixed point makes limb-crossing fragment quads select unrelated mips.
+        const cloudOpacity = cloudLayer.opacity(cloud.xyz).mul(0.82).toVar();
         If(hit.w.greaterThan(0), () => {
           result.assign(base.mul(sunCos.max(0).mul(0.88).add(0.025)));
           result.addAssign(
