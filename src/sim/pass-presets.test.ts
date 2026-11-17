@@ -25,6 +25,20 @@ describe('Stanford constructed presets', () => {
     expect(parseScenario(JSON.parse(JSON.stringify(scenario)))).toEqual(scenario);
   });
 
+  it('reproduces the two Stanford solar elevations checked against JPL Horizons', () => {
+    // Independent airless topocentric observations and exact query in docs/models.md.
+    const dusk = applyStanfordPassPreset(createDefaultScenario(), 'terminator');
+    const noon = applyStanfordPassPreset(dusk, 'daylight');
+    for (const [scenario, utc, elevation] of [
+      [dusk, '2026-03-01T01:57:53.754Z', -0.080044890],
+      [noon, '2026-03-01T20:21:08.020Z', 45.227666811],
+    ] as const) {
+      const point = sampleState(scenario);
+      expect(Math.abs(Date.parse(point.epochISO) - Date.parse(utc))).toBeLessThan(2000);
+      expect(Math.abs(point.sunElevationDeg - elevation)).toBeLessThan(0.01);
+    }
+  });
+
   it('constructs a daylight overhead crossing on the selected date without changing optics', () => {
     const input = createDefaultScenario();
     const scenario = applyStanfordPassPreset(input, 'daylight');
