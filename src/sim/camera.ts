@@ -1,0 +1,87 @@
+import { add, axisRotation, basisRotation, composeRotation, DEG, inverseRotation, normalize, rotate, sub } from './math';
+import type { CameraConfig, CameraPose, Lens, SensorProfile, SimulationSample, Vec3 } from './types';
+
+const FRONT_CAMERA = basisRotation([1, 0, 0], [0, 0, -1], [0, 1, 0]);
+const REAR_CAMERA = basisRotation([-1, 0, 0], [0, 0, -1], [0, -1, 0]);
+
+/** Wide mounts apply intrinsic yaw (right), pitch (up), then roll (clockwise).
+ * Main's optical axes are fixed in the body frame. */
+export function cameraPose(sample: SimulationSample, camera: CameraConfig): CameraPose {
+  let bodyFromCamera = FRONT_CAMERA;
+  if (camera.id !== 'main') {
+    const reference = camera.id === 'wideA' ? FRONT_CAMERA : REAR_CAMERA;
+    const yaw = axisRotation([0, 1, 0], camera.yawDeg * DEG);
+    const pitch = axisRotation([1, 0, 0], camera.pitchDeg * DEG);
+    const roll = axisRotation([0, 0, 1], camera.rollDeg * DEG);
+    bodyFromCamera = composeRotation(reference, composeRotation(yaw, composeRotation(pitch, roll)));
+  }
+
+  return {
+    positionEcefM: add(sample.positionEcefM, rotate(sample.qEcefFromBody, camera.positionBodyM)),
+    qEcefFromCamera: composeRotation(sample.qEcefFromBody, bodyFromCamera),
+  };
+}
+
+function angleFromRadius(lens: Lens, radiusMm: number): number {
+  const ratio = radiusMm / lens.focalLengthMm;
+  if (lens.projection === 'rectilinear') return Math.atan(ratio);
+  if (lens.projection === 'equidistant') return ratio;
+  return 2 * Math.asin(ratio / 2);
+}
+
+function radiusFromAngle(lens: Lens, angleRad: number): number {
+  if (lens.projection === 'rectilinear') return lens.focalLengthMm * Math.tan(angleRad);
+  if (lens.projection === 'equidistant') return lens.focalLengthMm * angleRad;
+  return 2 * lens.focalLengthMm * Math.sin(angleRad / 2);
+}
+
+function availableAngle(lens: Lens): number {
+  return Math.min(lens.maxFovDeg * DEG / 2, lens.projection === 'rectilinear' ? Math.PI / 2 : Math.PI);
+}
+
+export function usableRadiusMm(lens: Lens): number {
+  const angle = availableAngle(lens);
+  return Math.min(lens.imageCircleMm / 2, radiusFromAngle(lens, angle));
+}
+
+export function axisFovDeg(lens: Lens, axisSizeMm: number): number {
+  return angleFromRadius(lens, Math.min(usableRadiusMm(lens), axisSizeMm / 2)) * 2 / DEG;
+}
+
+/** Native sensor edge coordinates; first pixel center is (0.5, 0.5).
+ * Returns a unit vector in the right/down/forward camera frame. */
+export function rayForPixel(camera: CameraConfig, sensor: SensorProfile, u: number, v: number): Vec3 | null {
+  if (u < 0 || v < 0 || u > sensor.width || v > sensor.height) return null;
+  const pitchMm = sensor.pixelPitchUm / 1000;
+  const x = (u - sensor.width / 2) * pitchMm;
+  const y = (v - sensor.height / 2) * pitchMm;
+  const radiusMm = Math.hypot(x, y);
+  if (radiusMm > usableRadiusMm(camera.lens) + 1e-12) return null;
+  if (radiusMm === 0) return [0, 0, 1];
+  const angle = angleFromRadius(camera.lens, Math.min(radiusMm, usableRadiusMm(camera.lens)));
+  const radialScale = Math.sin(angle) / radiusMm;
+  return [radialScale * x, radialScale * y, Math.cos(angle)];
+}
+
+/** ECEF point projection. Unclipped projection is useful for exposure trajectories. */
+export function projectPoint(
+  camera: CameraConfig,
+  sensor: SensorProfile,
+  pose: CameraPose,
+  pointEcefM: Vec3,
+  clip = true,
+): [number, number] | null {
+  const [x, y, z] = rotate(inverseRotation(pose.qEcefFromCamera), normalize(sub(pointEcefM, pose.positionEcefM)));
+  if (!Number.isFinite(z) || (camera.lens.projection === 'rectilinear' && z <= 0)) return null;
+  const radial = Math.hypot(x, y);
+  if (radial < 1e-14) return z > 0 ? [sensor.width / 2, sensor.height / 2] : null;
+  const angle = Math.atan2(radial, z);
+  const radiusMm = radiusFromAngle(camera.lens, angle);
+  const radiusPx = radiusMm * 1000 / sensor.pixelPitchUm;
+  const u = sensor.width / 2 + radiusPx * x / radial;
+  const v = sensor.height / 2 + radiusPx * y / radial;
+  if (clip && (radiusMm > usableRadiusMm(camera.lens) + 1e-12 || u < 0 || v < 0 || u > sensor.width || v > sensor.height)) {
+    return null;
+  }
+  return [u, v];
+}
