@@ -118,6 +118,7 @@ const MOUNT_AXES = ['X', 'Y', 'Z'] as const;
 function Geometry({ camera, scenario, onChange, onCameraChange, mountTool }: CameraSettings & { mountTool: MountTool }) {
   const body = scenario.body;
   const wideId = camera.id === 'main' ? null : camera.id;
+  const partner = wideId && scenario.cameras.find(item => item.id === (wideId === 'wideA' ? 'wideB' : 'wideA'));
   const changeBody = (change: Partial<Scenario['body']>) => onChange({ ...scenario, body: { ...body, ...change } });
   const changePosition = (axis: number, positionM: number) => {
     const positionBodyM: Vec3 = [...camera.positionBodyM];
@@ -128,7 +129,8 @@ function Geometry({ camera, scenario, onChange, onCameraChange, mountTool }: Cam
   return <>
     <h2 className="section-heading">{camera.id === 'main' ? 'Main camera' : '360° pair'} mount</h2>
     {wideId && <>
-      <p className="note">{wideId === 'wideA' ? 'Front face · Wide A' : 'Rear face · Wide B'}. The opposite mount follows.</p>
+      <p className="note">{wideId === 'wideA' ? 'Front face · Wide A' : 'Rear face · Wide B'}
+        {partner && mountTool.mode === 'aim' ? ` · ${partner.name} pitch ${fmt(partner.pitchDeg, 2)}°` : ' · Linked pair'}</p>
       <WideMountEditor camera={camera} face={wideId} body={body} tool={mountTool} onChange={onCameraChange} />
     </>}
     <div className="field-grid">
