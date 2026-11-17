@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
-import { cameraPose, getSensor, rayForPixel, sampleState } from '../sim';
-import { usableRadiusMm } from '../sim/camera';
+import { getSensor, rayForPixel } from '../sim';
+import { cameraBodyRotation, usableRadiusMm } from '../sim/camera';
 import type { CameraConfig, CameraId, Scenario, SensorProfile } from '../sim';
 import { getGuideOcclusion, type GuideOcclusion } from './guide-occlusion';
 
@@ -131,8 +131,12 @@ function updateMount(guide: MountGuide, camera: CameraConfig, sensor: SensorProf
 export function updateCameraGuides(group: THREE.Group, scenario: Scenario, selectedId: CameraId | null, ship?: THREE.Group) {
   const started = performance.now();
   const cameras = selectedId ? scenario.cameras.filter(camera => selectedId === 'main' ? camera.id === 'main' : camera.id !== 'main') : [];
-  const key = JSON.stringify([scenario.customSensor, cameras.map(camera => [camera.id, camera.sensorId, camera.lens,
-    camera.positionBodyM, camera.yawDeg, camera.pitchDeg, camera.rollDeg])]);
+  // An unselected mount can still obstruct the selected camera.
+  const key = JSON.stringify([
+    scenario.customSensor,
+    scenario.cameras.map(c => [c.positionBodyM, c.yawDeg, c.pitchDeg, c.rollDeg]),
+    cameras.map(c => [c.id, c.sensorId, c.lens]),
+  ]);
   let state = states.get(group);
   if (state?.key === key && state.ship === ship) return;
   if (!state || state.mounts.length !== cameras.length) {
@@ -148,26 +152,25 @@ export function updateCameraGuides(group: THREE.Group, scenario: Scenario, selec
   const beforeIndex = performance.now();
   const occlusion = cameras.length && ship ? getGuideOcclusion(ship) : undefined;
   const indexMs = performance.now() - beforeIndex;
-  const sample = sampleState(scenario);
-  const inverseBody = new THREE.Quaternion(...sample.qEcefFromBody).invert();
   const hitTriangles = new Set<number>();
   let blockedRays = 0;
   cameras.forEach((camera, i) => {
     const guide = state!.mounts[i];
     guide.mount.position.fromArray(camera.positionBodyM);
-    guide.mount.quaternion.copy(inverseBody).multiply(new THREE.Quaternion(...cameraPose(sample, camera).qEcefFromCamera));
+    guide.mount.quaternion.fromArray(cameraBodyRotation(camera));
     guide.mount.name = `${camera.id} angular coverage`;
     blockedRays += updateMount(guide, camera, getSensor(camera.sensorId, scenario.customSensor), occlusion, hitTriangles);
   });
   let vertices = 0;
   const point = new THREE.Vector3();
   for (const id of hitTriangles) {
-    const p = occlusion!.triangles[id].p;
-    for (let i = 0; i < 9; i += 3) writeVertex(state.blockers, vertices++, point.fromArray(p, i), BLOCKED);
+    for (let corner = 0; corner < 3; corner++) {
+      writeVertex(state.blockers, vertices++, occlusion!.vertex(id, corner, point), BLOCKED);
+    }
   }
   finish(state.blockers, vertices);
   group.userData.occlusion = { sampledRays: occlusion ? cameras.length * AZIMUTHS * RINGS : 0,
-    blockedRays, highlightedTriangles: hitTriangles.size, meshTriangles: occlusion?.triangles.length ?? 0,
+    blockedRays, highlightedTriangles: hitTriangles.size, meshTriangles: occlusion?.triangleCount ?? 0,
     accelerationBuildMs: indexMs, updateMs: performance.now() - started };
 }
 

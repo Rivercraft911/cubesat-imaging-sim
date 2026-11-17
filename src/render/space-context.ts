@@ -14,6 +14,7 @@ import { AtmosphereAdapter } from "./atmosphere";
 import { EarthEnvironment } from "./environment";
 import {
   makeSpacecraft,
+  updateSpacecraftMounts,
   disposeObject,
   setSpacecraftCameraHighlight,
 } from "./spacecraft";
@@ -42,7 +43,11 @@ export async function createSpaceContext(
   westernNight: THREE.Texture,
   cloudLayer: CloudLayer,
 ) {
-  let shipKey = "";
+  const geometryKey = (s: Scenario) => JSON.stringify([s.body,
+    s.cameras.map(c => [c.id, c.housingDiameterMm, c.housingLengthMm])]);
+  const poseKey = (s: Scenario) => JSON.stringify(s.cameras.map(c =>
+    [c.positionBodyM, c.yawDeg, c.pitchDeg, c.rollDeg]));
+  let shipKey = geometryKey(scenario), mountKey = poseKey(scenario);
   let cameraSelectionHandler: ((id: CameraId) => void) | null = null;
   let selected: CameraId | null = null,
     currentSample = sample,
@@ -232,31 +237,25 @@ export async function createSpaceContext(
     currentSample = sample;
     worldOrigin.value.fromArray(sample.positionEcefM);
     sunDirection.value.fromArray(sample.sunDirectionEcef);
-    let changed = false;
-    const nextKey = JSON.stringify([
-      scenario.body,
-      scenario.cameras.map((c) => [
-        c.positionBodyM,
-        c.yawDeg,
-        c.pitchDeg,
-        c.rollDeg,
-        c.housingDiameterMm,
-        c.housingLengthMm,
-      ]),
-    ]);
-    if (nextKey !== shipKey) {
+    const nextGeometry = geometryKey(scenario), nextPose = poseKey(scenario);
+    const changed = nextGeometry !== shipKey || nextPose !== mountKey;
+    if (nextGeometry !== shipKey) {
       disposeObject(ship);
       shipScene.remove(ship);
       ship = makeSpacecraft(scenario);
       shipScene.add(ship);
-      radius = new THREE.Box3()
-        .setFromObject(ship)
-        .getBoundingSphere(new THREE.Sphere()).radius;
+      setSpacecraftCameraHighlight(ship, selected);
+    } else if (nextPose !== mountKey) {
+      updateSpacecraftMounts(ship, scenario);
+    }
+    if (changed) {
+      // Measure in the body frame, independent of the current orbital attitude.
+      ship.quaternion.identity();
+      radius = new THREE.Box3().setFromObject(ship).getBoundingSphere(new THREE.Sphere()).radius;
       controls.minDistance = radius * 1.12;
       controls.maxDistance = radius * 25;
-      setSpacecraftCameraHighlight(ship, selected);
-      shipKey = nextKey;
-      changed = true;
+      shipKey = nextGeometry;
+      mountKey = nextPose;
     }
     // Lens/FOV edits do not rebuild CAD but must update the inspection guides.
     updateCameraGuides(guides, scenario, selected, ship);

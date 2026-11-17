@@ -7,7 +7,7 @@ const REAR_CAMERA = basisRotation([-1, 0, 0], [0, 0, -1], [0, -1, 0]);
 
 /** Wide mounts apply intrinsic yaw (right), pitch (up), then roll (clockwise).
  * Main's optical axes are fixed in the body frame. */
-export function cameraPose(sample: SimulationSample, camera: CameraConfig): CameraPose {
+export function cameraBodyRotation(camera: CameraConfig) {
   let bodyFromCamera = FRONT_CAMERA;
   if (camera.id !== 'main') {
     const reference = camera.id === 'wideA' ? FRONT_CAMERA : REAR_CAMERA;
@@ -17,9 +17,13 @@ export function cameraPose(sample: SimulationSample, camera: CameraConfig): Came
     bodyFromCamera = composeRotation(reference, composeRotation(yaw, composeRotation(pitch, roll)));
   }
 
+  return bodyFromCamera;
+}
+
+export function cameraPose(sample: SimulationSample, camera: CameraConfig): CameraPose {
   return {
     positionEcefM: add(sample.positionEcefM, rotate(sample.qEcefFromBody, camera.positionBodyM)),
-    qEcefFromCamera: composeRotation(sample.qEcefFromBody, bodyFromCamera),
+    qEcefFromCamera: composeRotation(sample.qEcefFromBody, cameraBodyRotation(camera)),
   };
 }
 

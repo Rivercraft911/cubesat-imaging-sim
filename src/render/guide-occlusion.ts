@@ -7,23 +7,21 @@ const cache = new WeakMap<THREE.Group, GuideOcclusion>();
 
 /** A body-frame acceleration structure for editor-only optical obstruction.
  * Geometry, not shaded pixels, decides visibility. It is rebuilt with CAD. */
-export class GuideOcclusion {
+class TriangleIndex {
   readonly triangles: Triangle[] = [];
   private order: number[] = [];
   private branches: Branch[] = [];
   private stack: number[] = [];
 
-  constructor(ship: THREE.Group) {
-    ship.updateWorldMatrix(true, true);
-    const inverseRoot = ship.matrixWorld.clone().invert();
+  constructor(root: THREE.Group, owner?: CameraId) {
+    const inverseRoot = root.matrixWorld.clone().invert();
     const point = new THREE.Vector3();
-    ship.traverse(object => {
+    root.traverse(object => {
       if (!(object instanceof THREE.Mesh) || !(object.layers.mask & 1)) return;
-      let ancestor: THREE.Object3D | null = object;
-      let owner: CameraId | undefined;
-      while (ancestor && ancestor !== ship) {
-        owner ??= ancestor.userData.cameraId as CameraId | undefined;
-        ancestor = ancestor.parent;
+      if (!owner) {
+        for (let parent = object.parent; parent && parent !== root; parent = parent.parent) {
+          if (parent.userData.cameraId) return;
+        }
       }
       const material = Array.isArray(object.material) ? object.material[0] : object.material;
       // Current camera mounts have physical glass and standard opaque barrels.
@@ -118,8 +116,69 @@ export class GuideOcclusion {
   }
 }
 
+/** Rigid camera mounts keep a local triangle index. Only rays and highlighted
+ * vertices cross the mount/body boundary when a camera is moved or tilted. */
+export class GuideOcclusion {
+  private readonly parts;
+  readonly triangleCount: number;
+  private readonly origin = new THREE.Vector3();
+  private readonly direction = new THREE.Vector3();
+
+  constructor(ship: THREE.Group) {
+    ship.updateWorldMatrix(true, true);
+    let offset = 0;
+    const mounts = ship.children.filter((part): part is THREE.Group =>
+      part instanceof THREE.Group && Boolean(part.userData.cameraId));
+    this.parts = [ship, ...mounts].map(root => {
+      const index = new TriangleIndex(root, root.userData.cameraId);
+      const part = { mount: root === ship ? null : root, index, offset, inverse: new THREE.Matrix4() };
+      offset += index.triangles.length;
+      return part;
+    });
+    this.triangleCount = offset;
+  }
+
+  updateMounts() {
+    for (const part of this.parts) {
+      if (part.mount) {
+        part.mount.updateMatrix();
+        part.inverse.copy(part.mount.matrix).invert();
+      }
+    }
+  }
+
+  trace(origin: THREE.Vector3, direction: THREE.Vector3, cameraId: CameraId) {
+    let closest: { triangleId: number; distance: number } | null = null;
+    for (const part of this.parts) {
+      this.origin.copy(origin);
+      this.direction.copy(direction);
+      if (part.mount) {
+        this.origin.applyMatrix4(part.inverse);
+        this.direction.transformDirection(part.inverse);
+      }
+      const hit = part.index.trace(this.origin, this.direction, cameraId);
+      if (hit && (!closest || hit.distance < closest.distance)) {
+        closest = { triangleId: part.offset + hit.triangleId, distance: hit.distance };
+      }
+    }
+    return closest;
+  }
+
+  vertex(triangleId: number, corner: number, target: THREE.Vector3) {
+    for (const part of this.parts) {
+      const triangle = part.index.triangles[triangleId - part.offset];
+      if (!triangle) continue;
+      target.fromArray(triangle.p, corner * 3);
+      if (part.mount) target.applyMatrix4(part.mount.matrix);
+      return target;
+    }
+    throw new RangeError('Unknown obstruction triangle');
+  }
+}
+
 export function getGuideOcclusion(ship: THREE.Group): GuideOcclusion {
   let index = cache.get(ship);
   if (!index) { index = new GuideOcclusion(ship); cache.set(ship, index); }
+  index.updateMounts();
   return index;
 }

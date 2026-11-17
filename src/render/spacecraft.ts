@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { cameraPose, sampleState } from '../sim';
+import { cameraBodyRotation } from '../sim/camera';
 import type { CameraId, Scenario, Vec3 } from '../sim/types';
 
 const EDITOR_LAYER = 1;
@@ -272,8 +272,6 @@ export function setSpacecraftCameraHighlight(ship: THREE.Group, selectedId: Came
 }
 
 function cameraHousings(root: THREE.Group, m: Materials, scenario: Scenario) {
-  const sample = sampleState(scenario);
-  const inverseBody = new THREE.Quaternion(...sample.qEcefFromBody).invert();
   for (const config of scenario.cameras) {
     const mount = new THREE.Group();
     mount.name = `Camera mount ${config.id}`;
@@ -284,9 +282,19 @@ function cameraHousings(root: THREE.Group, m: Materials, scenario: Scenario) {
     else fisheyeHousing(mount, m, radius, length);
     mergeParts(mount);
     addCameraOutline(mount, m.selection);
-    mount.position.fromArray(config.positionBodyM);
-    mount.quaternion.copy(inverseBody).multiply(new THREE.Quaternion(...cameraPose(sample, config).qEcefFromCamera));
     root.add(mount);
+  }
+  updateSpacecraftMounts(root, scenario);
+}
+
+export function updateSpacecraftMounts(ship: THREE.Group, scenario: Scenario) {
+  for (const mount of ship.children) {
+    const id = mount.userData.cameraId;
+    if (!id) continue;
+    const config = scenario.cameras.find(camera => camera.id === id)!;
+    mount.position.fromArray(config.positionBodyM);
+    mount.quaternion.fromArray(cameraBodyRotation(config));
+    mount.updateMatrix();
   }
 }
 
