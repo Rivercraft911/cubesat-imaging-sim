@@ -15,8 +15,8 @@ export async function openingImage(signal?: AbortSignal): Promise<GroundImage> {
 }
 
 /** Continuous satellite coverage remains resident beneath changing aerial LOD. */
-export async function regionalImage(signal: AbortSignal): Promise<GroundImage> {
-  const response = await fetch('/assets/bay-regional.json', { signal });
+export async function regionalImage(signal: AbortSignal, level: 'fine' | 'wide' = 'fine'): Promise<GroundImage> {
+  const response = await fetch(`/assets/bay-regional${level === 'wide' ? '-wide' : ''}.json`, { signal });
   if (!response.ok) throw new Error('Regional imagery unavailable');
   const meta = await response.json();
   const raster = await fetch(`/assets/${meta.file}`, { signal });
