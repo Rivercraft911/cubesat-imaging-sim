@@ -1,4 +1,6 @@
-import type { CameraId, Scenario } from "../sim/types";
+import type { CameraConfig, CameraId, Scenario } from "../sim/types";
+export type WideMountDragMode = "move" | "aim";
+export type WideMountDragHandler = (id: 'wideA' | 'wideB', change: Partial<CameraConfig>) => void;
 export interface GroundImage {
   image: ImageBitmap | HTMLCanvasElement;
   /** EPSG:3857 meters: west, south, east, north. */
@@ -36,6 +38,7 @@ export interface ImagingEngine {
   setBaseGroundImage(image: GroundImage | null): void;
   setView(view: RenderView, cameraId?: CameraId): void;
   setSelectedCamera(id: CameraId | null): void;
+  setWideMountDrag(mode: WideMountDragMode | null, onChange: WideMountDragHandler): void;
   resetSpaceView(): void;
   setCameraSelectHandler(handler: ((id: CameraId) => void) | null): void;
   setReceivedPanorama(image: HTMLCanvasElement | null): void;

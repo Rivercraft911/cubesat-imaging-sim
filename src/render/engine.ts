@@ -523,6 +523,9 @@ export async function createImagingEngine(
         inspectionControls.selectCamera(id);
         dirty = true;
       },
+      setWideMountDrag(mode, handler) {
+        space.setWideMountDrag(mode, handler);
+      },
       setCameraSelectHandler(handler) {
         space.setCameraSelectHandler(handler);
       },

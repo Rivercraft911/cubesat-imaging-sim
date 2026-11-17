@@ -25,6 +25,8 @@ import {
 } from "./camera-guides";
 import type { CloudLayer } from "./cloud-layer";
 import { CLOUD_EQUATORIAL_RADIUS_M, CLOUD_POLAR_RADIUS_M } from "./cloud-layer";
+import { startWideDrag } from "./wide-mount-drag";
+import type { WideMountDragMode, WideMountDragHandler } from "./types";
 import { createCameraPicking } from "./camera-picking";
 import { createAerialTransfer } from "./aerial-transfer";
 import { earthSurfaceCoordinates, earthDayColor, earthNightColor } from "./earth-surface";
@@ -225,12 +227,25 @@ export async function createSpaceContext(
     environment.dispose();
     throw error;
   }
+  let dragMode: WideMountDragMode | null = null;
+  let onMountChange: WideMountDragHandler | null = null;
   const picking = createCameraPicking(
     canvas,
     spaceCamera,
     () => ship,
     () => controls.enabled,
     (id) => cameraSelectionHandler?.(id),
+    (id, firstRay) => {
+      if (!dragMode || id !== selected || id === "main") return null;
+      const config = currentScenario.cameras.find(camera => camera.id === id);
+      if (!config) return null;
+      const fromWorld = ship.matrixWorld.clone().invert();
+      const update = startWideDrag(dragMode, id, config, currentScenario.body, firstRay.clone().applyMatrix4(fromWorld));
+      return worldRay => {
+        const patch = update(worldRay.clone().applyMatrix4(fromWorld));
+        if (patch) onMountChange?.(id, patch);
+      };
+    },
   );
   function updateWorld(scenario: Scenario, sample: SimulationSample) {
     currentScenario = scenario;
@@ -317,7 +332,13 @@ export async function createSpaceContext(
     setCameraSelectHandler(handler: ((id: CameraId) => void) | null) {
       cameraSelectionHandler = handler;
     },
+    setWideMountDrag(mode: WideMountDragMode | null, handler: WideMountDragHandler) {
+      if (mode !== dragMode) picking.reset();
+      dragMode = mode;
+      onMountChange = handler;
+    },
     setSelectedCamera(id: CameraId | null) {
+      if (selected !== id) picking.reset();
       selected = id;
       setSpacecraftCameraHighlight(ship, id);
       updateWorld(currentScenario, currentSample);
