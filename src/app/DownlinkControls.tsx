@@ -29,9 +29,23 @@ export function DownlinkControls({ downlink, disabled = false }: {
   const status = starting ? 'Checking browser codecs…'
     : active ? (outage || stats?.inOutage) ? 'Link interrupted'
       : stats?.streams.some(stream => stream.waitingForKeyframe) ? 'Waiting for keyframes' : 'Receiving'
-      : 'Downlink off';
+      : null;
 
   return <div className="downlink-controls">
+    <div className="downlink-actions">
+      <button type="button" disabled={disabled && !active && !starting}
+        onClick={() => active || starting ? downlink.stop() : void downlink.start()}>
+        {starting ? 'Cancel startup' : active ? 'Stop live link' : 'Start live link'}
+      </button>
+      {active && <button type="button" aria-pressed={outage} onClick={() => downlink.setOutage(!outage)}>
+        {outage ? 'Restore link' : 'Interrupt link'}
+      </button>}
+      {status && <span role="status">{status}</span>}
+    </div>
+    {error && <p className="downlink-error" role="alert">{error}</p>}
+    {config.program === 'both' && <SelectField label="Receiver view" value={receiver} options={programs.slice(0, 2)}
+      onChange={value => downlink.setReceiver(value as 'main' | '360')} />}
+
     <div className="downlink-settings">
       <SelectField label="Program" value={config.program} options={programs}
         onChange={value => set('program', value as DownlinkConfig['program'])} />
@@ -58,21 +72,6 @@ export function DownlinkControls({ downlink, disabled = false }: {
       <NumberField label="Keyframe interval" unit="ms" min={250} max={10_000} step={250} digits={0}
         value={config.keyIntervalMs} onChange={value => set('keyIntervalMs', value)} />
     </div>
-
-    <div className="downlink-actions">
-      <button type="button" disabled={disabled && !active && !starting}
-        onClick={() => active || starting ? downlink.stop() : void downlink.start()}>
-        {starting ? 'Cancel' : active ? 'Stop downlink' : 'Start downlink'}
-      </button>
-      {active && <button type="button" aria-pressed={outage} onClick={() => downlink.setOutage(!outage)}>
-        {outage ? 'Restore link' : 'Interrupt link'}
-      </button>}
-      {!error && <span aria-live="polite">{status}</span>}
-    </div>
-
-    {error && <p className="downlink-error" role="alert">{error}</p>}
-    {config.program === 'both' && <SelectField label="Receiver view" value={receiver} options={programs.slice(0, 2)}
-      onChange={value => downlink.setReceiver(value as 'main' | '360')} />}
 
     {stats && <dl className="downlink-readout">
       <div><dt>Encoded</dt><dd>{fmt(stats.encodedBitrateBps / 1_000_000, 3)} Mbps</dd></div>

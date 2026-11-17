@@ -175,7 +175,9 @@ export default function App() {
   return (
     <main className="instrument">
       <Masthead view={displayView} onViewChange={selectView} onImport={importScenario} onSave={save}
-        onCapture={capture} ready={status.ready} capturing={capturing} />
+        onCapture={capture} ready={status.ready} capturing={capturing}
+        openLiveLink={() => setPanel('downlink')} liveLinkOpen={panel === 'downlink'}
+        liveLinkRunning={downlink.state === 'receiving'} />
       <div className={`workspace ${panel ? 'has-inspector' : ''}`}>
         <ImageWorkspace view={displayView} camera={camera} sensor={sensor} sample={sample}
           target={scenario.target} altitudeM={scenario.altitudeM} bodyWidthM={scenario.body.widthM}

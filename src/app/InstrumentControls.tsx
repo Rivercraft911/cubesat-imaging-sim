@@ -7,7 +7,7 @@ import { fmt } from './fields';
 import type { useDownlink } from './useDownlink';
 
 export type Panel = 'optics' | 'orbit' | 'geometry' | 'downlink';
-const panels: Record<Panel, string> = { optics: 'Camera', orbit: 'Orbit', geometry: 'Spacecraft', downlink: 'Downlink' };
+const panels: Record<Panel, string> = { optics: 'Camera', orbit: 'Orbit', geometry: 'Spacecraft', downlink: 'Live link' };
 
 export function OpticalControls({ camera, cameras, panel, pairedView, onCamera, onFocalLength, onPanel }: {
   camera: CameraConfig;
@@ -57,7 +57,7 @@ export function InspectorDrawer({ panel, scenario, cameraId, onChange, onClose, 
   const closeButton = useRef<HTMLButtonElement>(null);
   useEffect(() => { closeButton.current?.focus(); }, []);
   return (
-    <aside className="inspector" aria-label="Settings" onKeyDown={event => {
+    <aside id="settings-drawer" className="inspector" aria-label="Settings" onKeyDown={event => {
       if (event.key === 'Escape') onClose();
     }}>
       <div className="inspector-title"><span>Settings</span>

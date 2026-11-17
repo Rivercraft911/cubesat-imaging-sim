@@ -8,7 +8,9 @@ const views: { id: RenderView; label: string }[] = [
   { id: 'panorama', label: '360°' },
 ];
 
-export function Masthead({ view, onViewChange, onImport, onSave, onCapture, ready, capturing }: {
+export function Masthead({
+  view, onViewChange, onImport, onSave, onCapture, ready, capturing, openLiveLink, liveLinkOpen, liveLinkRunning,
+}: {
   view: RenderView;
   onViewChange: (view: RenderView) => void;
   onImport: (file: File) => Promise<void>;
@@ -16,6 +18,9 @@ export function Masthead({ view, onViewChange, onImport, onSave, onCapture, read
   onCapture: () => Promise<void>;
   ready: boolean;
   capturing: boolean;
+  openLiveLink: () => void;
+  liveLinkOpen: boolean;
+  liveLinkRunning: boolean;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const menu = useRef<HTMLDetailsElement>(null);
@@ -37,11 +42,17 @@ export function Masthead({ view, onViewChange, onImport, onSave, onCapture, read
             onClick={() => onViewChange(id)}>{label}</button>
         ))}
       </nav>
-      <button className="capture-button" aria-label={view === 'panorama' ? 'Export 360 equirectangular PNG' : 'Export native-resolution PNG'}
-        title={view === 'panorama' ? 'Export source panorama as a 4096 × 2048 equirectangular PNG' : 'Export native-resolution source PNG'}
-        onClick={() => void onCapture()} disabled={!ready || capturing}>
-        <Icon name="export" size={16} /><span>{capturing ? 'Exporting…' : 'Export image'}</span>
-      </button>
+      <div className="capture-actions">
+        <button className={`live-link-button ${liveLinkRunning ? 'running' : ''}`}
+          aria-expanded={liveLinkOpen} aria-controls="settings-drawer" onClick={openLiveLink}>
+          {liveLinkRunning ? 'Link running' : 'Live link'}
+        </button>
+        <button className="capture-button" aria-label={view === 'panorama' ? 'Export 360 equirectangular PNG' : 'Export native-resolution PNG'}
+          title={view === 'panorama' ? 'Export source panorama as a 4096 × 2048 equirectangular PNG' : 'Export native-resolution source PNG'}
+          onClick={() => void onCapture()} disabled={!ready || capturing}>
+          <Icon name="export" size={16} /><span>{capturing ? 'Exporting…' : 'Export image'}</span>
+        </button>
+      </div>
       <input hidden ref={fileInput} type="file" accept=".json,application/json" onChange={event => {
         const file = event.currentTarget.files?.[0];
         event.currentTarget.value = '';
