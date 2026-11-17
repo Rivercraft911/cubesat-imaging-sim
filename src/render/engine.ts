@@ -1,4 +1,5 @@
 import { mainImageModel } from "../sim/exposure";
+import { createOpeningScenario } from "../sim/pass-presets";
 import * as THREE from "three/webgpu";
 import { contains, shotBounds } from "../imagery/bounds";
 import { bindSensorCamera, bindPanoramaCameras } from "./camera-bindings";
@@ -7,7 +8,6 @@ import { loadEarthTextures } from "./earth-textures";
 import { createHardwareCapture } from "./hardware-capture";
 import { texture, uniform, uv, vec2, vec4, ivec2 } from "three/tsl";
 import {
-  createDefaultScenario,
   getSensor,
   cameraPose,
   sampleState,
@@ -106,7 +106,7 @@ export async function createImagingEngine(
       fallback,
     } = earthTextures;
     const cloudLayer = createCloudLayer(cloud, regionalCloud);
-    let scenario = createDefaultScenario(),
+    let scenario = createOpeningScenario(),
       sample = sampleState(scenario),
       timeS = 0;
     let view: RenderView = "image",

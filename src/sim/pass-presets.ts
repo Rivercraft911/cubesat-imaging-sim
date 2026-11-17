@@ -1,4 +1,4 @@
-import { TARGETS } from './catalog';
+import { createDefaultScenario, TARGETS } from './catalog';
 import { localUp } from './earth';
 import { sampleState } from './orbit';
 import { add, cross, DEG, dot, normalize, scale, wrap } from './math';
@@ -75,6 +75,12 @@ export function applyStanfordPassPreset(scenario: Scenario, preset: StanfordPass
   }
   epochCache.set(cacheKey, best);
   return atEpoch(base, best);
+}
+
+export function createOpeningScenario(): Scenario {
+  const scenario = createDefaultScenario();
+  // Use the same date as the 550 km terminator preset for a lighting comparison.
+  return applyStanfordPassPreset({ ...scenario, epochISO: '2026-03-01T00:00:00.000Z' }, 'daylight');
 }
 
 /** 90° means Sun normal to the orbital plane, i.e. ideal terminator geometry. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultScenario } from './catalog';
-import { applyStanfordPassPreset, orbitalBetaDeg } from './pass-presets';
+import { applyStanfordPassPreset, createOpeningScenario, orbitalBetaDeg } from './pass-presets';
 import { sampleState } from './orbit';
 import { ecefToGeodetic, localUp, EARTH_GM_M3_S2 } from './earth';
 import { DEG, dot, length } from './math';
@@ -28,7 +28,8 @@ describe('Stanford constructed presets', () => {
   it('reproduces the two Stanford solar elevations checked against JPL Horizons', () => {
     // Independent airless topocentric observations and exact query in docs/models.md.
     const dusk = applyStanfordPassPreset(createDefaultScenario(), 'terminator');
-    const noon = applyStanfordPassPreset(dusk, 'daylight');
+    const noon = createOpeningScenario();
+    expect(noon).toEqual(applyStanfordPassPreset(dusk, 'daylight'));
     for (const [scenario, utc, elevation] of [
       [dusk, '2026-03-01T01:57:53.754Z', -0.080044890],
       [noon, '2026-03-01T20:21:08.020Z', 45.227666811],

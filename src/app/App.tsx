@@ -1,8 +1,8 @@
-import { applyStanfordPassPreset } from '../sim/pass-presets';
+import { createOpeningScenario } from '../sim/pass-presets';
 import { LensComparison, withMainFocalLength, type ComparisonSnapshot } from './LensComparison';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  computeMetrics, createDefaultScenario, getSensor, parseScenario, sampleState,
+  computeMetrics, getSensor, parseScenario, sampleState,
 } from '../sim';
 import type { CameraConfig, CameraId, Scenario } from '../sim';
 import type { RenderView, WideMountDragMode } from '../render/types';
@@ -22,7 +22,7 @@ import { editCamera } from '../sim/camera-edit';
 import { DEFAULT_SOURCE_SELECTION, displaySelection, selectSourceCamera } from './view-selection';
 
 export default function App({ onRendererFailure }: { onRendererFailure: (message: string) => void }) {
-  const [scenario, setScenario] = useState<Scenario>(() => applyStanfordPassPreset(createDefaultScenario(), 'terminator'));
+  const [scenario, setScenario] = useState(createOpeningScenario);
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
