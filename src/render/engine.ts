@@ -45,6 +45,7 @@ function makeTarget(w: number, h: number) {
 export async function createImagingEngine(
   canvas: HTMLCanvasElement,
   onStatus?: (s: EngineStatus) => void,
+  onGpuFailure?: (message: string) => void,
 ): Promise<ImagingEngine> {
   onStatus?.({
     ready: false,
@@ -60,8 +61,22 @@ export async function createImagingEngine(
       forceWebGL: false,
     }),
   );
+  let disposed = false;
+  let gpuFailure: Error | undefined;
+  const failGpu = (message: string) => {
+    if (disposed || gpuFailure) return;
+    gpuFailure = new Error(message);
+    onGpuFailure?.(message);
+  };
+  const onDeviceLost = renderer.onDeviceLost.bind(renderer);
+  renderer.onDeviceLost = (info) => {
+    if (disposed || gpuFailure || info.reason === "destroyed") return;
+    onDeviceLost(info);
+    failGpu(`${info.api} device lost: ${info.message}`);
+  };
   try {
     await renderer.init();
+    if (gpuFailure) throw gpuFailure;
     if (
       !(
         "isWebGPUBackend" in renderer.backend &&
@@ -72,7 +87,7 @@ export async function createImagingEngine(
         "This simulator requires WebGPU. Open it in a browser with WebGPU enabled.",
       );
     }
-    const removeGpuDiagnostics = installGpuDiagnostics(renderer);
+    const removeGpuDiagnostics = installGpuDiagnostics(renderer, failGpu);
     initialization.defer(removeGpuDiagnostics);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.AgXToneMapping;
@@ -80,6 +95,7 @@ export async function createImagingEngine(
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     const earthTextures = initialization.own(await loadEarthTextures());
+    if (gpuFailure) throw gpuFailure;
     const {
       day,
       night,
@@ -99,7 +115,7 @@ export async function createImagingEngine(
     let width = 800,
       height = 600,
       dpr = 1,
-      disposed = false,
+      hasDrawn = false,
       dirty = true;
     let spaceVisited = false,
       panoramaVisited = false;
@@ -149,6 +165,7 @@ export async function createImagingEngine(
         cloudLayer,
       ),
     );
+    if (gpuFailure) throw gpuFailure;
     const { shipScene, spaceCamera, controls } = space;
     const hardware = initialization.own(
       createHardwareCapture(renderer, shipScene),
@@ -379,6 +396,7 @@ export async function createImagingEngine(
       }
       renderer.setViewport(0, 0, width, height);
       dirty = false;
+      hasDrawn = true;
       onStatus?.({
         ready: true,
         backend: "WebGPU",
@@ -569,6 +587,7 @@ export async function createImagingEngine(
         dirty = true;
       },
       render() {
+        if (disposed || gpuFailure) return;
         if (!captures.busy) updateGroundWeight();
         if (view === "space") space.updateControls();
         if (dirty) {
@@ -576,9 +595,11 @@ export async function createImagingEngine(
             draw();
           } catch (error) {
             dirty = false;
+            if (!hasDrawn) throw error;
             console.error(error);
             onStatus?.({
               ready: false,
+              failed: true,
               backend: "WebGPU",
               message: error instanceof Error ? error.message : String(error),
             });
@@ -623,10 +644,11 @@ export async function createImagingEngine(
       },
     };
     engine.resize(canvas.clientWidth || 800, canvas.clientHeight || 600);
-    onStatus?.({ ready: true, backend: "WebGPU" });
+    if (gpuFailure) throw gpuFailure;
     initialization.commit();
     return engine;
   } catch (error) {
+    disposed = true;
     initialization.rollback();
     throw error;
   }

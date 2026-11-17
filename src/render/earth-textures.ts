@@ -5,7 +5,10 @@ import { publicAsset } from "../assets";
 export async function loadEarthTextures() {
   const loader = new THREE.TextureLoader();
   const load = async (path: string) => {
-    const t = await loader.loadAsync(publicAsset(path));
+    const t = await loader.loadAsync(publicAsset(path)).catch((cause: unknown) => {
+      const detail = cause instanceof Error ? `: ${cause.message}` : ".";
+      throw new Error(`Unable to load Earth texture ${path}${detail}`, { cause });
+    });
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 16;
     t.generateMipmaps = true;

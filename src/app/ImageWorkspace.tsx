@@ -90,9 +90,9 @@ export function ImageWorkspace({
         {received && <>
           {!receivedPanorama && <canvas ref={downlink.receiverCanvas} className="received-canvas" aria-label="Decoded downlink image" />}
         </>}
-        {!status.ready && <div className="engine-message" role="status">
+        {!status.ready && <div className="engine-message" role={status.failed ? "alert" : "status"}>
           <p>{status.message}</p>
-          <small>Preparing the viewfinder</small>
+          <small>{status.failed ? "Viewfinder frame failed" : "Preparing the viewfinder"}</small>
         </div>}
       </div>
       <div className="target-heading">

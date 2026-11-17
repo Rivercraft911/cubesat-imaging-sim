@@ -13,6 +13,7 @@ export type RenderView = "image" | "space" | "panorama";
 export type CaptureCamera = CameraId | "panorama";
 export interface EngineStatus {
   ready: boolean;
+  failed?: boolean;
   backend: string;
   message?: string;
   warnings?: string[];
