@@ -11,6 +11,7 @@ export function useImagery(engine: React.RefObject<ImagingEngine | null>, versio
   const retained = useRef<GroundImage[]>([]);
 
   useEffect(() => {
+    if (!version) return;
     const abort = new AbortController();
     let wideReady = false;
     const keep = (image: GroundImage) => {
@@ -33,9 +34,9 @@ export function useImagery(engine: React.RefObject<ImagingEngine | null>, versio
       retained.current.forEach(image => { if (image.image instanceof ImageBitmap) image.image.close(); });
       retained.current = [];
     };
-  }, []);
+  }, [version]);
   useEffect(() => { if (!frozen) engine.current?.setBaseGroundImage(base?.image.width ? base : null); }, [version, base, engine, frozen]);
-  const { detail, progress } = useGroundDetail(scenario, timeS, fine, base);
+  const { detail, progress } = useGroundDetail(scenario, timeS, fine, base, version > 0);
   useLayoutEffect(() => { if (!frozen) engine.current?.setGroundImage(detail?.image.width ? detail : null); }, [version, detail, engine, frozen]);
   return {
     image: detail ?? base, baseImage: base,

@@ -16,6 +16,7 @@ export function useGroundDetail(
   timeS: number,
   fine: GroundImage | null,
   base: GroundImage | null,
+  enabled: boolean,
 ) {
   const [detail, setDetail] = useState<GroundImage | null>(null);
   const [progress, setProgress] = useState<ImageryProgress>({
@@ -53,6 +54,7 @@ export function useGroundDetail(
   }, [scenario]);
 
   useEffect(() => {
+    if (!enabled) return;
     const loader = new DetailLoader(setDetail, (value) =>
       setProgress((previous) =>
         previous.state === value.state &&
@@ -140,7 +142,7 @@ export function useGroundDetail(
       clearInterval(poll);
       loader.dispose();
     };
-  }, []);
+  }, [enabled]);
   // Playback and seeking can leave the current raster between network polls.
   useLayoutEffect(() => {
     track.current();
@@ -151,6 +153,6 @@ export function useGroundDetail(
   useEffect(() => {
     prefetch.current();
     reconcile.current(true);
-  }, [geometryKey]);
+  }, [geometryKey, enabled]);
   return { detail, progress };
 }
