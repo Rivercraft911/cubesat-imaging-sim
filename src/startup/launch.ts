@@ -73,7 +73,7 @@ const compactTouchScreen = matchMedia('(pointer: coarse)').matches && Math.min(s
 if (hasGpu && sessionWasInterrupted()) {
   preview('The last simulator session was interrupted. Open this link on a laptop or desktop with WebGPU, or try again here.');
 } else if (prefersPreview(navigator, compactTouchScreen)) {
-  preview('Please open this fellow up on a laptop or something that can handle some hefty WebGPU. The full sim can crash a phone tab… so here’s Stanford in the meantime.',
+  preview('Please open this fellow up on a laptop or something that can handle some hefty WebGPU. The full sim can crash a phone tab.',
     hasGpu ? undefined : 'This browser doesn’t provide WebGPU.');
 } else if (!hasGpu) {
   preview('This browser doesn’t provide WebGPU. Open this link on a laptop or desktop with WebGPU to run the simulator.');
