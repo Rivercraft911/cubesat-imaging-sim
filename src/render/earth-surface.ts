@@ -11,11 +11,11 @@ export function earthSurfaceCoordinates(point: Node<'vec3'>) {
   return { globalUV, geographic };
 }
 
-function regionalCoordinates(geographic: Node<'vec2'>, bounds: readonly number[]) {
+function regionalCoordinates(geographic: Node<'vec2'>, bounds: readonly number[], featherDeg = 0.25) {
   const southwest = vec2(bounds[0], bounds[1]), northeast = vec2(bounds[2], bounds[3]);
   const regionalUV = geographic.sub(southwest).div(northeast.sub(southwest));
   const edge = geographic.sub(southwest).min(northeast.sub(geographic));
-  return { regionalUV, blend: edge.x.min(edge.y).smoothstep(0, 0.25) };
+  return { regionalUV, blend: edge.x.min(edge.y).smoothstep(0, featherDeg) };
 }
 
 export function earthDayColor(global: Texture, regional: Texture, coords: ReturnType<typeof earthSurfaceCoordinates>) {
@@ -25,8 +25,15 @@ export function earthDayColor(global: Texture, regional: Texture, coords: Return
 }
 
 export function earthNightColor(global: Texture, regional: Texture, coords: ReturnType<typeof earthSurfaceCoordinates>) {
-  // earth-night-western-us.json: native 500 m Black Marble crop.
-  const night = regionalCoordinates(coords.geographic, [-130.66666666666666, 29.1, -113.6, 46.166666666666664]);
-  return mix(texture(global, coords.globalUV).rgb,
-    texture(regional, night.regionalUV).r.mul(vec3(1, 0.88, 0.74)), night.blend);
+  // Native 500 m Black Marble grayscale and the publisher's colored global map
+  // have different display styling, epochs and resolution. Compare their
+  // linear-light luminance and apply one illustrative tint after blending, so
+  // crossing the crop cannot change the apparent light color. This is not a
+  // radiance calibration. A 2° transition softens the source-detail boundary;
+  // it does not alter or synthesize either source's spatial detail.
+  const night = regionalCoordinates(coords.geographic, [-130.66666666666666, 29.1, -113.6, 46.166666666666664], 2);
+  const luminance = vec3(0.2126, 0.7152, 0.0722);
+  const globalLight = texture(global, coords.globalUV).rgb.dot(luminance);
+  const regionalLight = texture(regional, night.regionalUV).rgb.dot(luminance);
+  return mix(globalLight, regionalLight, night.blend).mul(vec3(1, 0.88, 0.74));
 }
