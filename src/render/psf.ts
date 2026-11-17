@@ -1,3 +1,4 @@
+import { gaussianWeights } from "./gaussian-kernel";
 import * as THREE from "three/webgpu";
 import { Fn, If, float, texture, uniform, uv, vec2, vec3, vec4, wgslFn } from "three/tsl";
 // Independent channel Gaussian deviates, fixed for a native pixel and simulation time.
@@ -21,6 +22,7 @@ export function makePsf(source: THREE.Texture) {
     delta = uniform(new THREE.Vector2()),
     exposure = uniform(1),
     motion = uniform(0),
+    sideWeight = uniform(-1),
     study = uniform(0),
     response = uniform(new THREE.Vector4(0, 0, 1, 1)),
     crop = uniform(new THREE.Vector4(0, 0, 1, 1)),
@@ -30,25 +32,25 @@ export function makePsf(source: THREE.Texture) {
     depthWrite: false,
     toneMapped: false,
   });
-  const rawWeights = Array.from({ length: 9 }, (_, i) =>
-    Math.exp(-0.5 * ((i - 4) * 0.75) ** 2),
-  );
-  const sum = rawWeights.reduce((a, b) => a + b, 0);
-  const weights = rawWeights.map((w) => w / sum);
   material.colorNode = Fn(() => {
     const color = vec3(0).toVar();
-    for (let i = 0; i < 9; i++) {
-      const offset = delta.mul((i - 4) * 0.75);
-      const weight = float(weights[i])
-        .mul(motion.oneMinus())
-        .add(motion.mul(1 / 9));
-      color.addAssign(input.sample(uv().add(offset)).rgb.mul(weight));
-    }
+    If(sideWeight.greaterThanEqual(0), () => {
+      const sides = input.sample(uv().sub(delta)).rgb.add(input.sample(uv().add(delta)).rgb);
+      color.assign(input.sample(uv()).rgb.mul(sideWeight.mul(2).oneMinus()).add(sides.mul(sideWeight)));
+    }).Else(() => {
+      for (let i = 0; i < 9; i++) {
+        const offset = delta.mul((i - 4) * 0.75);
+        const weight = float(gaussianWeights[i])
+          .mul(motion.oneMinus())
+          .add(motion.mul(1 / 9));
+        color.addAssign(input.sample(uv().add(offset)).rgb.mul(weight));
+      }
+    });
     If(study.greaterThan(0.5), () => {
       const pixel = vec2(uv().x, float(1).sub(uv().y)).mul(crop.zw).add(crop.xy);
       color.assign(noiseResponse(color, pixel, seed, response));
     });
     return vec4(color.mul(exposure), 1);
   })();
-  return { material, input, delta, exposure, motion, study, response, crop, seed };
+  return { material, input, delta, exposure, motion, sideWeight, study, response, crop, seed };
 }

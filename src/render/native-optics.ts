@@ -13,6 +13,7 @@ import type {
   Scenario,
   SimulationSample,
 } from "../sim";
+import { compactGaussian } from "./gaussian-kernel";
 import { makePsf } from "./psf";
 import { DEFAULT_EXPOSURE_STUDY, exposureScale, mainImageModel } from "../sim/exposure";
 interface NativeOpticsInput {
@@ -72,15 +73,18 @@ export function createOpticsPipeline(
         );
 
       quad.material = psf.material;
+      const compact = compactGaussian(sigma);
+      const stepPx = compact?.offsetPx ?? sigma;
+      psf.sideWeight.value = compact?.sideWeight ?? -1;
       psf.motion.value = 0;
       psf.study.value = 0;
       psf.exposure.value = 1;
       psf.input.value = rawTarget.texture;
-      psf.delta.value.set(sigma / crop.z, 0);
+      psf.delta.value.set(stepPx / crop.z, 0);
       renderer.setRenderTarget(blurTarget);
       renderer.render(quadScene, quadCamera);
       psf.input.value = blurTarget.texture;
-      psf.delta.value.set(0, sigma / crop.w);
+      psf.delta.value.set(0, stepPx / crop.w);
       // The horizontal pass consumed the raw pixels. Reuse their storage for the vertical pass.
       renderer.setRenderTarget(rawTarget);
       renderer.render(quadScene, quadCamera);
@@ -118,6 +122,7 @@ export function createOpticsPipeline(
         warnings.add(`${c.name}: shutter smear limited to 256 native pixels.`);
       const bound = Math.min(1, 256 / Math.max(length, 0.0001));
       psf.input.value = rawTarget.texture;
+      psf.sideWeight.value = -1;
       psf.motion.value = 1;
       psf.delta.value.set(
         (dx * bound) / (6.75 * crop.z),
