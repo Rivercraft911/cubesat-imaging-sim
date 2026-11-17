@@ -1,23 +1,17 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type RefObject, type SetStateAction } from 'react';
 import { DEFAULT_DOWNLINK_CONFIG, DownlinkSession, type DownlinkConfig, type DownlinkStats } from '../downlink';
+import { FramePairs, closePair } from '../downlink/frame-pairs';
 import type { ImagingEngine } from '../render';
 import { getSensor, type Scenario } from '../sim';
 
 type Receiver = 'main' | '360';
 type State = 'off' | 'starting' | 'receiving' | 'error';
-type EyePair = { wideA?: VideoFrame; wideB?: VideoFrame };
 
 interface Run {
   session: DownlinkSession;
-  pendingPairs: Map<number, EyePair>;
+  pendingPairs: FramePairs<VideoFrame>;
   stills: Partial<Record<Receiver, HTMLCanvasElement>>;
   presentationTimes: Record<Receiver, number[]>;
-  lastStitchedPts: number;
-}
-
-function closePair(pair: EyePair): void {
-  pair.wideA?.close();
-  pair.wideB?.close();
 }
 
 function paint(canvas: HTMLCanvasElement, source: VideoFrame | HTMLCanvasElement): void {
@@ -95,7 +89,6 @@ export function useDownlink(
     runRef.current = null;
     if (!run) return;
     run.session.stop();
-    for (const pair of run.pendingPairs.values()) closePair(pair);
     run.pendingPairs.clear();
     run.stills = {};
   }, []);
@@ -166,17 +159,8 @@ export function useDownlink(
 
     const stitchNext = async () => {
       if (stitchingRef.current || runRef.current !== run) return;
-      const ready = [...run.pendingPairs.entries()].sort(([a], [b]) => b - a).find(([, pair]) => pair.wideA && pair.wideB);
-      if (!ready) return;
-      const [ptsUs, pair] = ready;
-      run.pendingPairs.delete(ptsUs);
-      run.lastStitchedPts = ptsUs;
-      for (const [older, pending] of run.pendingPairs) {
-        if (older <= ptsUs) {
-          closePair(pending);
-          run.pendingPairs.delete(older);
-        }
-      }
+      const pair = run.pendingPairs.takeLatest();
+      if (!pair) return;
       stitchingRef.current = true;
       try {
         const height = config.resolution;
@@ -215,18 +199,7 @@ export function useDownlink(
           present(stream.id === 'main' ? 'main' : '360', frame);
           return;
         }
-        const ptsUs = frame.timestamp;
-        if (ptsUs <= run.lastStitchedPts) return;
-        const pair = run.pendingPairs.get(ptsUs) ?? {};
-        pair[stream.id]?.close();
-        pair[stream.id] = frame.clone();
-        run.pendingPairs.set(ptsUs, pair);
-        const limit = stitchingRef.current ? 1 : 2;
-        while (run.pendingPairs.size > limit) {
-          const oldest = Math.min(...run.pendingPairs.keys());
-          closePair(run.pendingPairs.get(oldest)!);
-          run.pendingPairs.delete(oldest);
-        }
+        run.pendingPairs.add(stream.id, frame);
         void stitchNext();
       },
       onStats(nextStats) {
@@ -241,8 +214,7 @@ export function useDownlink(
       onError: fail,
     });
     const run: Run = {
-      session, pendingPairs: new Map(), stills: {}, presentationTimes: { main: [], '360': [] },
-      lastStitchedPts: -Infinity,
+      session, pendingPairs: new FramePairs(), stills: {}, presentationTimes: { main: [], '360': [] },
     };
     runRef.current = run;
     try {
