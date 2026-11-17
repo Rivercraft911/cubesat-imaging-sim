@@ -14,6 +14,7 @@ import type {
   SimulationSample,
 } from "../sim";
 import { makePsf } from "./psf";
+import { exposureScale } from "../sim/exposure";
 interface NativeOpticsInput {
   material: THREE.MeshBasicNodeMaterial;
   crop: THREE.Vector4;
@@ -72,6 +73,7 @@ export function createOpticsPipeline(
 
       quad.material = psf.material;
       psf.motion.value = 0;
+      psf.study.value = 0;
       psf.exposure.value = 1;
       psf.input.value = rawTarget.texture;
       psf.delta.value.set(sigma / crop.z, 0);
@@ -122,6 +124,13 @@ export function createOpticsPipeline(
         (-dy * bound) / (6.75 * crop.w),
       );
       psf.exposure.value = 1;
+      const study = c.id === "main" ? c.exposureStudy : undefined;
+      psf.study.value = study?.enabled ? 1 : 0;
+      if (study?.enabled) {
+        psf.response.value.set(exposureScale(c), study.readNoiseElectrons, study.fullWellElectrons, study.gain);
+        psf.crop.value.copy(crop);
+        psf.seed.value = Math.round(timeS * 1000) % 100_000;
+      }
       renderer.setRenderTarget(target);
       renderer.render(quadScene, quadCamera);
     },

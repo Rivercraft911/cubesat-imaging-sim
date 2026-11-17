@@ -67,6 +67,8 @@ export function bindSensorCamera(
   sensor.u.localOrigin.value.fromArray(o).sub(sensor.u.groundReference.value);
   // Source-normalized brightness. Exposure affects the shutter PSF, not invented radiometry.
   sensor.u.exposure.value = 1;
+  sensor.u.twilight.value = c.id === "main" && c.exposureStudy?.enabled ? 1 : 0;
+  sensor.u.diffuseFraction.value = c.exposureStudy?.diffuseFraction ?? 0;
   sensor.u.space.value = c.id === "main" ? 0 : 1;
   sensor.u.showShip.value = 1;
   sensor.shipNode.value = cube;

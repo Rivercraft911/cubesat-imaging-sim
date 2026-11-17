@@ -159,7 +159,9 @@ export function ImageWorkspace({
             {view === 'image' && <p>Aerial coverage blends over dated satellite imagery. Source detail varies across the frame.</p>}
             {view === 'panorama' && <p>The viewer looks into a 360° image. Export saves a 4096 × 2048 equirectangular PNG; changing the view angle does not change the camera lenses.</p>}
             <p>{view === 'image' && camera.id === 'main'
-              ? sample.sunElevationDeg < 0
+              ? camera.exposureStudy?.enabled
+                ? 'Twilight exposure study: actual Sun direction, assumed diffuse light and sensitivity. Source photos are reflectance proxies; this is not a calibrated night-performance prediction.'
+                : sample.sunElevationDeg < 0
                 ? 'The target is below the solar horizon. Source-normalized daylight imagery does not predict night performance.'
                 : 'Source-normalized daylight imagery. Optics are uncalibrated; dimensions are provisional.'
               : 'Illustrative Sun, cloud and limb lighting. Brightness is not calibrated radiometry.'}</p>

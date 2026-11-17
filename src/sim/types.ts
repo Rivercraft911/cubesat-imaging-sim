@@ -15,9 +15,19 @@ export interface Lens {
   focalLengthMm: number; fNumber: number; projection: Projection;
   maxFovDeg: number; imageCircleMm: number; extraBlurPx: number;
 }
+/** Optional illustrative sensitivity study. Inputs are assumptions unless measured by the user. */
+export interface ExposureStudy {
+  enabled: boolean;
+  diffuseFraction: number; // diffuse irradiance / overhead direct irradiance, constant across this pass
+  referenceElectronsPerMs: number; // unit linear source value, overhead Sun, f/4, current sensor
+  readNoiseElectrons: number;
+  fullWellElectrons: number;
+  gain: number;
+}
 export interface CameraConfig {
   id: CameraId; name: string; sensorId: string; lens: Lens;
   positionBodyM: Vec3; yawDeg: number; pitchDeg: number; rollDeg: number;
+  exposureStudy?: ExposureStudy;
   exposureMs: number; jitterArcsec: number; readoutMs: number;
   housingDiameterMm: number; housingLengthMm: number;
 }

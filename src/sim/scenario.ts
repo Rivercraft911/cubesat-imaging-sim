@@ -62,6 +62,20 @@ function parseLens(value: unknown): Lens {
 
 const CAMERA_IDS = ['main', 'wideA', 'wideB'] as const;
 
+function parseExposureStudy(value: unknown): CameraConfig['exposureStudy'] {
+  if (value === undefined) return undefined;
+  const study = object(value, 'Exposure study');
+  if (typeof study.enabled !== 'boolean') throw new TypeError('Exposure study enabled must be true or false.');
+  return {
+    enabled: study.enabled,
+    diffuseFraction: number(study.diffuseFraction, 'Diffuse irradiance fraction', 0, 1),
+    referenceElectronsPerMs: number(study.referenceElectronsPerMs, 'Reference electrons/ms', 0, 1e9),
+    readNoiseElectrons: number(study.readNoiseElectrons, 'Read noise (electrons)', 0, 1e5),
+    fullWellElectrons: number(study.fullWellElectrons, 'Full well (electrons)', 1, 1e9),
+    gain: number(study.gain, 'Study gain', 0.01, 1e4),
+  };
+}
+
 function parseCamera(value: unknown, customSensor: Scenario['customSensor']): CameraConfig {
   const camera = object(value, 'Camera');
   const id = choice(camera.id, 'Camera ID', CAMERA_IDS);
@@ -79,6 +93,7 @@ function parseCamera(value: unknown, customSensor: Scenario['customSensor']): Ca
     yawDeg: id === 'main' ? 0 : yawDeg,
     pitchDeg: id === 'main' ? 0 : pitchDeg,
     rollDeg: id === 'main' ? 0 : rollDeg,
+    ...(camera.exposureStudy !== undefined ? { exposureStudy: parseExposureStudy(camera.exposureStudy) } : {}),
     exposureMs: number(camera.exposureMs, 'Exposure (ms)', 0, 100_000),
     jitterArcsec: number(camera.jitterArcsec, 'Jitter (arcsec)', 0, 3600),
     readoutMs: number(camera.readoutMs, 'Readout (ms)', 0, 100_000),

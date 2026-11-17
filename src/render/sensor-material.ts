@@ -55,6 +55,8 @@ export function makeSensorMaterial(
     hasBase: uniform(0),
     detailFiner: uniform(1),
     exposure: uniform(1),
+    twilight: uniform(0),
+    diffuseFraction: uniform(0),
     // Display crop is expressed in native pixel coordinates, independent of GPU framebuffer size.
     crop: uniform(new THREE.Vector4(0, 0, 3840, 2160)),
     space: uniform(0),
@@ -137,6 +139,12 @@ export function makeSensorMaterial(
       );
       // Main imagery retains its photographed, normalized brightness.
       const result = hit.w.greaterThan(0).select(base, vec3(0)).toVar();
+      if (!contextual) {
+        If(u.twilight.greaterThan(0.5), () => {
+          const normal = surface.mul(vec3(1, 1, 1 / 0.9966471893352525 ** 2)).normalize();
+          result.mulAssign(normal.dot(u.sun).max(0).add(u.diffuseFraction));
+        });
+      }
       if (contextual) {
         const normal = surface
           .mul(vec3(1, 1, 1 / 0.9966471893352525 ** 2))
