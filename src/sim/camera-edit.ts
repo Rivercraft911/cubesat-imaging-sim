@@ -6,9 +6,15 @@ export function wideMountBodyYM(id: Exclude<CameraId, 'main'>, bodyDepthM: numbe
   return outward * (bodyDepthM / 2 + 0.005 + extraStandOffMm / 1_000);
 }
 
-/** The wide pair shares optics and local mount angles. Its opposite mount is
- * a 180° rotation about body +Z: (x,y,z) → (−x,−y,z). */
+/** Opposing faces have opposite image-right axes and the same up axis.
+ * Equal local yaw and opposite local pitch keep the two boresights antiparallel. */
 export function editCamera(scenario: Scenario, id: CameraId, changes: Partial<CameraConfig>): Scenario {
+  const driver = scenario.cameras.find(camera => camera.id === id);
+  if (!driver) return scenario;
+  // Resolve both angles on aim edits so a single-axis edit also relinks a saved asymmetric study.
+  const partnerAim = changes.yawDeg !== undefined || changes.pitchDeg !== undefined
+    ? { yawDeg: changes.yawDeg ?? driver.yawDeg, pitchDeg: -(changes.pitchDeg ?? driver.pitchDeg) || 0 }
+    : undefined;
   return {
     ...scenario,
     cameras: scenario.cameras.map(camera => {
@@ -17,6 +23,7 @@ export function editCamera(scenario: Scenario, id: CameraId, changes: Partial<Ca
       return {
         ...camera,
         ...changes,
+        ...(camera.id !== id && partnerAim),
         id: camera.id,
         name: camera.name,
         ...(position && camera.id !== id ? { positionBodyM: [-position[0], -position[1], position[2]] as [number, number, number] } : {}),

@@ -1,6 +1,15 @@
 import { expect, it } from 'vitest';
+import { cameraBodyRotation } from './camera';
 import { createDefaultScenario } from './catalog';
 import { editCamera, wideMountBodyYM } from './camera-edit';
+import { add, length, rotate } from './math';
+import type { CameraConfig } from './types';
+
+function expectOpposedBoresights(first: CameraConfig, second: CameraConfig) {
+  const firstForward = rotate(cameraBodyRotation(first), [0, 0, 1]);
+  const secondForward = rotate(cameraBodyRotation(second), [0, 0, 1]);
+  expect(length(add(firstForward, secondForward))).toBeLessThan(1e-12);
+}
 
 it('links wide optics and mirrors mounts without changing the main camera', () => {
   const scenario = createDefaultScenario();
@@ -20,6 +29,39 @@ it('mirrors rear edits back to the front and keeps main edits independent', () =
   const main = editCamera(paired, 'main', { housingLengthMm: 40 });
   expect(main.cameras[1]).toBe(paired.cameras[1]);
   expect(main.cameras[2]).toBe(paired.cameras[2]);
+});
+
+it.each([
+  ['wideA', 1, 2],
+  ['wideB', 2, 1],
+] as const)('keeps the boresights opposite when aiming %s', (id, driverIndex, partnerIndex) => {
+  const { cameras } = editCamera(createDefaultScenario(), id, { yawDeg: 27, pitchDeg: -19, rollDeg: 31 });
+  const driver = cameras[driverIndex];
+  const partner = cameras[partnerIndex];
+  expect(driver).toMatchObject({ yawDeg: 27, pitchDeg: -19, rollDeg: 31 });
+  expect(partner).toMatchObject({ yawDeg: 27, pitchDeg: 19, rollDeg: 31 });
+  expectOpposedBoresights(driver, partner);
+});
+
+it('repairs a saved common pitch when only yaw is edited', () => {
+  const scenario = createDefaultScenario();
+  scenario.cameras[1].pitchDeg = 19;
+  scenario.cameras[2].pitchDeg = 19;
+
+  const { cameras } = editCamera(scenario, 'wideB', { yawDeg: -27 });
+  expect(cameras[2]).toMatchObject({ yawDeg: -27, pitchDeg: 19 });
+  expect(cameras[1]).toMatchObject({ yawDeg: -27, pitchDeg: -19 });
+  expectOpposedBoresights(cameras[1], cameras[2]);
+});
+
+it('preserves saved wide camera poses when editing optics', () => {
+  const scenario = createDefaultScenario();
+  Object.assign(scenario.cameras[1], { yawDeg: 10, pitchDeg: 19, rollDeg: 5 });
+  Object.assign(scenario.cameras[2], { yawDeg: 20, pitchDeg: 19, rollDeg: -8 });
+
+  const { cameras } = editCamera(scenario, 'wideA', { sensorId: 'imx477' });
+  expect(cameras[1]).toEqual({ ...scenario.cameras[1], sensorId: 'imx477' });
+  expect(cameras[2]).toEqual({ ...scenario.cameras[2], sensorId: 'imx477' });
 });
 
 it.each(['wideA', 'wideB'] as const)('adds 2 mm outward to both mounts when editing %s', id => {
