@@ -441,27 +441,13 @@ export async function createImagingEngine(
           spaceVisited = true;
         }
         if (next === "panorama" && !panoramaVisited) {
-          // Initial observer window faces the actual sunward limb. Later view
-          // changes and time scrubbing preserve the user's chosen yaw/pitch.
-          const position = new THREE.Vector3(...sample.positionEcefM);
-          const nadir = position.clone().normalize().negate();
-          const sun = new THREE.Vector3(...sample.sunDirectionEcef);
-          const tangent = sun.clone().addScaledVector(nadir, -sun.dot(nadir));
-          if (tangent.lengthSq() > 1e-8) {
-            const angle = Math.max(
-              0,
-              Math.asin(Math.min(1, 6378137 / position.length())) -
-                THREE.MathUtils.degToRad(12),
-            );
-            const forward = tangent
-              .normalize()
-              .multiplyScalar(Math.sin(angle))
-              .addScaledVector(nadir, Math.cos(angle));
-            forward.applyQuaternion(
-              new THREE.Quaternion(...sample.qEcefFromBody).invert(),
-            );
-            panoramaViewer.setLookDirection(forward);
-          }
+          // Start the observer window Earth-facing. This changes only where
+          // the panorama is viewed, never camera boresights or apparent scale.
+          // Later view changes and scrubbing preserve the user's yaw/pitch.
+          const nadir = new THREE.Vector3(...sample.positionEcefM)
+            .normalize().negate()
+            .applyQuaternion(new THREE.Quaternion(...sample.qEcefFromBody).invert());
+          panoramaViewer.setLookDirection(nadir);
           panoramaVisited = true;
         }
         inspectionControls.recenter();
