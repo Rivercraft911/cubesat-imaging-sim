@@ -318,3 +318,50 @@ it("prefers adequate single-pass coverage over finer imagery with acquisition se
   expect(full).not.toHaveBeenCalled();
   loader.dispose();
 });
+
+it("withdraws uncovered imagery before the next network poll", async () => {
+  const zoomed: Bounds = [100, 100, 900, 900];
+  const wider: Bounds = [0, 0, 5000, 5000];
+  const local = { ...image("local", zoomed, 7), singlePass: true };
+  const publish = vi.fn();
+  const full = vi.fn();
+  const loader = new DetailLoader(
+    publish,
+    vi.fn(),
+    { prepared: async () => local, overview: vi.fn(), full },
+    () => 0,
+  );
+  loader.update({ ...view(zoomed), desiredPixelM: 8 });
+  await settle();
+  expect(publish.mock.lastCall?.[0]).toBe(local);
+  loader.track(view(wider));
+  expect(publish.mock.lastCall?.[0]).toBe(satellite);
+  expect(full).not.toHaveBeenCalled();
+  loader.dispose();
+});
+
+it("closes a pending mosaic when the frame advances outside it between polls", async () => {
+  const original = view([100, 100, 900, 900]);
+  const newView = view([100000, 100000, 101000, 101000]);
+  const remote = deferred<GroundImage>();
+  const full = vi.fn<typeof import("./provider").shotImage>(() => remote.promise);
+  const publish = vi.fn();
+  const loader = new DetailLoader(
+    publish,
+    vi.fn(),
+    { prepared: async () => null, overview: vi.fn(async () => { throw Error(); }), full },
+    () => 0,
+  );
+  loader.update(original);
+  await settle();
+  expect(full).toHaveBeenCalledOnce();
+  loader.track(newView);
+  expect(full.mock.calls[0][1].aborted).toBe(true);
+  const stale = image("stale", original.bounds, 1);
+  remote.resolve(stale);
+  await settle();
+  expect((stale.image as ImageBitmap).close).toHaveBeenCalledOnce();
+  expect(publish.mock.calls).toEqual([[satellite]]);
+  expect(full).toHaveBeenCalledOnce();
+  loader.dispose();
+});

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { GroundImage, ImagingEngine } from '../render';
 import type { Scenario } from '../sim';
 import { regionalImage } from '../imagery/provider';
@@ -36,7 +36,7 @@ export function useImagery(engine: React.RefObject<ImagingEngine | null>, versio
   }, []);
   useEffect(() => { if (!frozen) engine.current?.setBaseGroundImage(base?.image.width ? base : null); }, [version, base, engine, frozen]);
   const { detail, progress } = useGroundDetail(scenario, timeS, fine, base);
-  useEffect(() => { if (!frozen) engine.current?.setGroundImage(detail?.image.width ? detail : null); }, [version, detail, engine, frozen]);
+  useLayoutEffect(() => { if (!frozen) engine.current?.setGroundImage(detail?.image.width ? detail : null); }, [version, detail, engine, frozen]);
   return {
     image: detail ?? base, baseImage: base,
     progress: error && !base ? { state: 'error' as const, message: error } : progress,

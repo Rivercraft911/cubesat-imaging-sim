@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { computeMetrics, type Scenario } from "../sim";
 import type { GroundImage } from "../render";
 import { contains, shotBounds } from "../imagery/bounds";
@@ -25,6 +25,7 @@ export function useGroundDetail(
   const latest = useRef({ scenario, timeS, fine, base });
   latest.current = { scenario, timeS, fine, base };
   const reconcile = useRef<(changed?: boolean) => void>(() => {});
+  const track = useRef<() => void>(() => {});
   const prefetch = useRef<() => void>(() => {});
   const camera = scenario.cameras.find((c) => c.id === "main")!;
   const geometryKey = JSON.stringify([
@@ -59,7 +60,7 @@ export function useGroundDetail(
           : value,
       ),
     );
-    const tick = (changed = false) => {
+    const view = () => {
       const { scenario: live, timeS: frameTime, fine, base } = latest.current;
       const regional = fine?.image.width
         ? fine
@@ -74,23 +75,28 @@ export function useGroundDetail(
         : base?.image.width
           ? base
           : regional;
-      loader.update(
-        {
-          bounds,
-          satellite,
-          latitudeDeg: live.target.latitudeDeg,
-          desiredPixelM: Math.max(0.6, metrics.gsdM / 1.5),
-          sensorSpacingM: metrics.gsdM,
-          aerial: needsAerial(
-            metrics.gsdM,
-            regional.sourceResolutionM,
-            loader.hasAerial(bounds),
-          ),
-        },
-        changed,
-      );
+      return {
+        bounds,
+        satellite,
+        latitudeDeg: live.target.latitudeDeg,
+        desiredPixelM: Math.max(0.6, metrics.gsdM / 1.5),
+        sensorSpacingM: metrics.gsdM,
+        aerial: needsAerial(
+          metrics.gsdM,
+          regional.sourceResolutionM,
+          loader.hasAerial(bounds),
+        ),
+      };
+    };
+    const tick = (changed = false) => {
+      const current = view();
+      if (current) loader.update(current, changed);
     };
     reconcile.current = tick;
+    track.current = () => {
+      const current = view();
+      if (current) loader.track(current);
+    };
     prefetch.current = () => {
       const { scenario: live, timeS: frameTime } = latest.current;
       const main = live.cameras.find((item) => item.id === "main")!;
@@ -113,11 +119,16 @@ export function useGroundDetail(
     const poll = setInterval(tick, 350);
     return () => {
       reconcile.current = () => {};
+      track.current = () => {};
       prefetch.current = () => {};
       clearInterval(poll);
       loader.dispose();
     };
   }, []);
+  // Playback and seeking can leave the current raster between network polls.
+  useLayoutEffect(() => {
+    track.current();
+  }, [timeS, geometryKey, fine, base]);
   useEffect(() => {
     reconcile.current();
   }, [fine, base]);

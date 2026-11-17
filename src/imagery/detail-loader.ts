@@ -133,7 +133,13 @@ export class DetailLoader {
     this.warm = { bounds, abort, done };
   }
 
-  update(view: DetailView, geometryChanged = false) {
+  /** Apply the current footprint before the next draw without scheduling
+   * network work at the frame rate. Pending results now validate against it. */
+  track(view: DetailView) {
+    this.update(view, false, false);
+  }
+
+  update(view: DetailView, geometryChanged = false, allowRequests = true) {
     if (this.disposed) return;
     this.view = view;
     if (geometryChanged) this.notBefore = this.now() + 180;
@@ -152,8 +158,10 @@ export class DetailLoader {
     }
     // Remove a now-too-small aerial rectangle immediately, even during debounce
     // or an outstanding network request. The fallback covers the complete view.
-    if (!this.hasAerial(view.bounds))
-      this.show(this.cached(view.bounds) ?? view.satellite, undefined, false);
+    if (!this.hasAerial(view.bounds)) {
+      const fallback = this.cached(view.bounds, Infinity, view.sensorSpacingM) ?? view.satellite;
+      if (fallback !== this.current) this.show(fallback);
+    }
     if (this.job) {
       if (
         contains(this.job.plan.bounds, view.bounds) &&
@@ -162,6 +170,7 @@ export class DetailLoader {
         return;
       this.cancel();
     }
+    if (!allowRequests) return;
     if (this.now() < this.notBefore) {
       this.report({
         state: "loading",
