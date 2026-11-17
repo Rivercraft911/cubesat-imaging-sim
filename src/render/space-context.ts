@@ -247,9 +247,10 @@ export async function createSpaceContext(
       };
     },
   );
+  let worldInitialized = false;
   function updateWorld(scenario: Scenario, sample: SimulationSample) {
-    currentScenario = scenario;
-    currentSample = sample;
+    // Observer motion changes the projection, not the spacecraft or its shadow.
+    if (worldInitialized && scenario === currentScenario && sample === currentSample) return false;
     worldOrigin.value.fromArray(sample.positionEcefM);
     sunDirection.value.fromArray(sample.sunDirectionEcef);
     const nextGeometry = geometryKey(scenario), nextPose = poseKey(scenario);
@@ -290,6 +291,9 @@ export async function createSpaceContext(
       new THREE.Vector3(...sample.positionEcefM),
       sun,
     );
+    currentScenario = scenario;
+    currentSample = sample;
+    worldInitialized = true;
     return changed;
   }
 
@@ -338,10 +342,11 @@ export async function createSpaceContext(
       onMountChange = handler;
     },
     setSelectedCamera(id: CameraId | null) {
-      if (selected !== id) picking.reset();
+      if (selected === id) return;
+      picking.reset();
       selected = id;
       setSpacecraftCameraHighlight(ship, id);
-      updateWorld(currentScenario, currentSample);
+      updateCameraGuides(guides, currentScenario, selected, ship);
     },
     setSurface(node: THREE.MeshStandardNodeMaterial["colorNode"]) {
       planetMaterial.colorNode = node;
