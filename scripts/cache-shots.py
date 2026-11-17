@@ -1,12 +1,14 @@
 """Build bundled Bay Area shot rasters from CDFW's public USDA 2022 NAIP layer.
 
-Requires Python 3 and Pillow. Run from any directory.
+Requires Python 3 and Pillow. Use --shot NAME to rebuild a single mosaic.
 """
+import argparse
 import hashlib
 import io
 import json
 import math
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -20,11 +22,26 @@ SERVICE = 'https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/
 CATALOG = 'https://catalog.data.gov/dataset/naip-2022-60cm-california'
 PUBLIC_DOMAIN = 'https://www.usgs.gov/centers/eros/science/usgs-eros-archive-aerial-photography-national-agriculture-imagery-program-naip'
 DEST = Path(__file__).resolve().parents[1] / 'public/assets/shots'
-GROUND_PITCH_M = 1.5
+
+
+@dataclass(frozen=True)
+class Shot:
+    name: str
+    latitude: float
+    longitude: float
+    width: int
+    height: int
+    targets: tuple[str, ...]
+    ground_pitch_m: float = 1.5
+    webp_quality: int = 90
+
+
 SHOTS = [
-    ('stanford', 37.4275, -122.1697, 8192, 6144, ['stanford']),
-    ('golden-gate', 37.8199, -122.4783, 6144, 6144, ['goldenGate']),
-    ('bay-bridge', 37.8042, -122.3750, 6144, 6144, ['bayBridge', 'sanFrancisco']),
+    Shot('stanford', 37.4275, -122.1697, 8192, 6144, ('stanford',)),
+    Shot('golden-gate', 37.8199, -122.4783, 6144, 6144, ('goldenGate',)),
+    Shot('bay-bridge', 37.8042, -122.3750, 6144, 6144, ('bayBridge', 'sanFrancisco')),
+    # Covers the 100 mm IMX676 footprint from -30 s to +30 s of the default pass.
+    Shot('stanford-medium', 37.4280, -122.1705, 7040, 7680, ('stanford',), 7.0, 84),
 ]
 EXTENT_KEYS = ('xmin', 'ymin', 'xmax', 'ymax')
 
@@ -65,16 +82,19 @@ def export_tile(job):
                     raise ValueError(f'Unexpected image {raw.format} {raw.size}')
                 image = raw.convert('RGBA')
             print(f'{name}: tile {column},{row} verified ({len(data)/1e6:.1f} MB)', flush=True)
-            return column, row, image
+            return column, row, image, {
+                'url': request, 'boundsMercator': bounds, 'width': width, 'height': height,
+                'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest(),
+            }
         except (KeyError, OSError, ValueError) as error:
             if attempt == 2:
                 raise RuntimeError(f'{name} tile {column},{row} failed') from error
 
 
 def build_shot(shot, pool, destination):
-    name, lat, lon, width, height, targets = shot
-    x, y = mercator(lon, lat)
-    projected_pitch = GROUND_PITCH_M / math.cos(math.radians(lat))
+    name, width, height = shot.name, shot.width, shot.height
+    x, y = mercator(shot.longitude, shot.latitude)
+    projected_pitch = shot.ground_pitch_m / math.cos(math.radians(shot.latitude))
     tile_w, tile_h = width // 2, height // 2
     half_span_x, half_span_y = tile_w * projected_pitch, tile_h * projected_pitch
     x_edges = [x - half_span_x, x, x + half_span_x]
@@ -83,42 +103,56 @@ def build_shot(shot, pool, destination):
         (name, col, row, (x_edges[col], y_edges[row + 1], x_edges[col + 1], y_edges[row]), tile_w, tile_h)
         for row in range(2) for col in range(2)
     ]
+    source_tiles = []
     with Image.new('RGBA', (width, height)) as mosaic:
-        for col, row, raster in pool.map(export_tile, jobs):
+        for col, row, raster, source in pool.map(export_tile, jobs):
             mosaic.paste(raster, (col * tile_w, row * tile_h))
             raster.close()
+            source_tiles.append(source)
         alpha = mosaic.getchannel('A').histogram()
         if alpha[-1] < width * height * 0.1:
             raise ValueError(f'{name} has less than 10% valid imagery')
         file = f'{name}.webp'
         output = destination / file
-        mosaic.save(output, quality=90, method=4)
+        mosaic.save(output, quality=shot.webp_quality, method=4)
     print(f'{name}: bundled {output.stat().st_size/1e6:.1f} MB', flush=True)
     return {
-        'id': f'cdfw-naip-2022-{name}', 'file': file, 'targetIds': targets,
+        'id': f'cdfw-naip-2022-{name}', 'file': file, 'targetIds': shot.targets,
         'width': width, 'height': height,
         'boundsMercator': [x_edges[0], y_edges[-1], x_edges[-1], y_edges[0]],
-        'sourceResolutionM': GROUND_PITCH_M,
+        'sourceResolutionM': shot.ground_pitch_m,
         'attribution': 'USDA NAIP 2022 · California Department of Fish and Wildlife',
         'source': SERVICE, 'catalog': CATALOG, 'publicDomain': PUBLIC_DOMAIN,
         'sourceNativeResolutionM': 0.6, 'sourceAcquisitionYear': 2022,
         'retrievedUTC': datetime.now(timezone.utc).isoformat(),
         'projectedPixelSpacingM': projected_pitch, 'transparentPixels': alpha[0],
-        'processing': 'Four bilinear natural-color EPSG:3857 exports with returned extents verified. Stitched at matching pixel edges and encoded as WebP quality 90 with source alpha.',
+        'processing': 'Four bilinear natural-color EPSG:3857 exports with returned extents verified. '
+                      f'Stitched at matching pixel edges and encoded as WebP quality {shot.webp_quality} with source alpha.',
+        'sourceTiles': source_tiles,
         'sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
     }
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--shot', choices=[shot.name for shot in SHOTS])
+    name = parser.parse_args().shot
+    selected = [shot for shot in SHOTS if name is None or shot.name == name]
     DEST.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix='.shot-build-', dir=DEST.parent) as temporary:
         stage = Path(temporary)
         with ThreadPoolExecutor(max_workers=4) as pool:
-            manifest = [build_shot(shot, pool, stage) for shot in SHOTS]
-        (stage / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-        for entry in manifest:
+            built = [build_shot(shot, pool, stage) for shot in selected]
+        manifest_path = DEST / 'manifest.json'
+        if name is not None and manifest_path.exists():
+            manifest = {entry['id']: entry for entry in json.loads(manifest_path.read_text())}
+        else:
+            manifest = {}
+        manifest.update((entry['id'], entry) for entry in built)
+        (stage / 'manifest.json').write_text(json.dumps(list(manifest.values()), indent=2) + '\n')
+        for entry in built:
             (stage / entry['file']).replace(DEST / entry['file'])
-        (stage / 'manifest.json').replace(DEST / 'manifest.json')
+        (stage / 'manifest.json').replace(manifest_path)
 
 
 if __name__ == '__main__':

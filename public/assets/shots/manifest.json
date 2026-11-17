@@ -80,5 +80,86 @@
     "transparentPixels": 0,
     "processing": "Four bilinear natural-color EPSG:3857 exports with returned extents verified. Stitched at matching pixel edges and encoded as WebP quality 90 with source alpha.",
     "sha256": "37eeb1a2b026b4040ab7324cd9e16cf8845c37325e87b942e7fe9a967cb609eb"
+  },
+  {
+    "id": "cdfw-naip-2022-stanford-medium",
+    "file": "stanford-medium.webp",
+    "targetIds": [
+      "stanford"
+    ],
+    "width": 7040,
+    "height": 7680,
+    "boundsMercator": [
+      -13630985.995810404,
+      4465084.681072243,
+      -13568929.704108853,
+      4532782.45383757
+    ],
+    "sourceResolutionM": 7.0,
+    "attribution": "USDA NAIP 2022 \u00b7 California Department of Fish and Wildlife",
+    "source": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer",
+    "catalog": "https://catalog.data.gov/dataset/naip-2022-60cm-california",
+    "publicDomain": "https://www.usgs.gov/centers/eros/science/usgs-eros-archive-aerial-photography-national-agriculture-imagery-program-naip",
+    "sourceNativeResolutionM": 0.6,
+    "sourceAcquisitionYear": 2022,
+    "retrievedUTC": "2026-11-17T11:31:13.892688+00:00",
+    "projectedPixelSpacingM": 8.814814162151976,
+    "transparentPixels": 1359117,
+    "processing": "Four bilinear natural-color EPSG:3857 exports with returned extents verified. Stitched at matching pixel edges and encoded as WebP quality 84 with source alpha.",
+    "sourceTiles": [
+      {
+        "url": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer/exportImage?bbox=-13630985.995810404%2C4498933.567454906%2C-13599957.849959629%2C4532782.45383757&bboxSR=3857&imageSR=3857&size=3520%2C3840&format=png32&bandIds=0%2C1%2C2&noData=0%2C0%2C0&noDataInterpretation=esriNoDataMatchAll&adjustAspectRatio=false&interpolation=RSP_BilinearInterpolation&f=json",
+        "boundsMercator": [
+          -13630985.995810404,
+          4498933.567454906,
+          -13599957.849959629,
+          4532782.45383757
+        ],
+        "width": 3520,
+        "height": 3840,
+        "bytes": 26315765,
+        "sha256": "c2c969f86155319a49ae91f4162abd4b990061d53c7121826e29d5fcbd2f37a3"
+      },
+      {
+        "url": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer/exportImage?bbox=-13599957.849959629%2C4498933.567454906%2C-13568929.704108853%2C4532782.45383757&bboxSR=3857&imageSR=3857&size=3520%2C3840&format=png32&bandIds=0%2C1%2C2&noData=0%2C0%2C0&noDataInterpretation=esriNoDataMatchAll&adjustAspectRatio=false&interpolation=RSP_BilinearInterpolation&f=json",
+        "boundsMercator": [
+          -13599957.849959629,
+          4498933.567454906,
+          -13568929.704108853,
+          4532782.45383757
+        ],
+        "width": 3520,
+        "height": 3840,
+        "bytes": 28757511,
+        "sha256": "6168c3c3f3d0b0b1eeeb2dabbf18f2acdec11fb8cd1bfe96fd0d2deb073b97ed"
+      },
+      {
+        "url": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer/exportImage?bbox=-13630985.995810404%2C4465084.681072243%2C-13599957.849959629%2C4498933.567454906&bboxSR=3857&imageSR=3857&size=3520%2C3840&format=png32&bandIds=0%2C1%2C2&noData=0%2C0%2C0&noDataInterpretation=esriNoDataMatchAll&adjustAspectRatio=false&interpolation=RSP_BilinearInterpolation&f=json",
+        "boundsMercator": [
+          -13630985.995810404,
+          4465084.681072243,
+          -13599957.849959629,
+          4498933.567454906
+        ],
+        "width": 3520,
+        "height": 3840,
+        "bytes": 29729380,
+        "sha256": "b7c37490b68fdd5d8df07df17353979bfebecdcf56de5e2a5cc130447d4b4f8a"
+      },
+      {
+        "url": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer/exportImage?bbox=-13599957.849959629%2C4465084.681072243%2C-13568929.704108853%2C4498933.567454906&bboxSR=3857&imageSR=3857&size=3520%2C3840&format=png32&bandIds=0%2C1%2C2&noData=0%2C0%2C0&noDataInterpretation=esriNoDataMatchAll&adjustAspectRatio=false&interpolation=RSP_BilinearInterpolation&f=json",
+        "boundsMercator": [
+          -13599957.849959629,
+          4465084.681072243,
+          -13568929.704108853,
+          4498933.567454906
+        ],
+        "width": 3520,
+        "height": 3840,
+        "bytes": 34073422,
+        "sha256": "cf6e6326bb28016a9e6d45dcaf9f67fdfe106f8f6d8710780a70378c57ee08db"
+      }
+    ],
+    "sha256": "c569dcbb9dcb8ce0df719899f020861196d21dc51d41113da3e83336ab841c7c"
   }
 ]
