@@ -130,22 +130,42 @@ describe('camera coordinates and optics', () => {
     expect(rayForPixel(wide, sensor, sensor.width / 2, 0)?.[2]).toBeCloseTo(Math.cos(95 * DEG), 12);
   });
 
+  it('uses the full IMX676 recording area and sizes the default optics for it', () => {
+    const scenario = createDefaultScenario();
+    for (const camera of scenario.cameras) {
+      expect(camera.sensorId).toBe('imx676');
+      expect(getSensor(camera.sensorId)).toMatchObject({ width: 3536, height: 3536, pixelPitchUm: 2, shutter: 'rolling' });
+    }
+    const [main, ...wide] = scenario.cameras;
+    const sensor = getSensor('imx676');
+    expect(rayForPixel(main, sensor, 0, 0)).not.toBeNull();
+    expect(rayForPixel(main, sensor, 3536, 3536)).not.toBeNull();
+    for (const camera of wide) {
+      expect(camera.lens.imageCircleMm).toBeCloseTo(7.072, 10);
+      expect(camera.lens.focalLengthMm).toBeCloseTo(2.1326, 3);
+      const metrics = computeMetrics(scenario, camera.id);
+      expect(metrics.horizontalFovDeg).toBeCloseTo(190, 10);
+      expect(metrics.verticalFovDeg).toBeCloseTo(190, 10);
+    }
+  });
+
   it('reports center GSD, aperture, diffraction, and tracking-dependent exposure motion', () => {
     const scenario = createDefaultScenario();
     const main = computeMetrics(scenario, 'main');
     // The body tracks the target. The front camera keeps its fixed orientation
     // and the mounting translation shifts the target by lens parallax.
-    expect(main.targetPixel?.[0]).toBeCloseTo(1920 + 0.023 * 25_000 / 550_000, 6);
-    expect(main.targetPixel?.[1]).toBeCloseTo(1080 + 0.012 * 25_000 / 550_000, 6);
-    expect(main.gsdXM).toBeCloseTo(22, 2);
-    expect(main.gsdYM).toBeCloseTo(22, 2);
-    expect(main.footprintWidthM).toBeGreaterThan(84_000);
-    expect(main.apertureMm).toBe(12.5);
+    expect(main.targetPixel?.[0]).toBeCloseTo(1768 + 0.023 * 12_500 / 550_000, 6);
+    expect(main.targetPixel?.[1]).toBeCloseTo(1768 - 0.022 * 12_500 / 550_000, 6);
+    expect(main.gsdXM).toBeCloseTo(44, 2);
+    expect(main.gsdYM).toBeCloseTo(44, 2);
+    expect(main.footprintWidthM).toBeCloseTo(155_700, -2);
+    expect(main.footprintHeightM).toBeCloseTo(155_700, -2);
+    expect(main.apertureMm).toBe(6.25);
     expect(main.airyDiameterPx).toBeCloseTo(2.684, 9);
     expect(main.smearPx).toBeLessThan(1e-6);
     const nadir = computeMetrics({ ...scenario, pointing: 'nadir' }, 'main');
-    expect(nadir.smearPx).toBeGreaterThan(0.29);
-    expect(nadir.smearPx).toBeLessThan(0.39);
+    expect(nadir.smearPx).toBeGreaterThan(0.145);
+    expect(nadir.smearPx).toBeLessThan(0.195);
     const tilted = computeMetrics({ ...scenario, offNadirDeg: 50 }, 'main');
     expect(tilted.gsdXM).toBeGreaterThan(tilted.gsdYM * 1.4);
     const rear = computeMetrics(scenario, 'wideB');
@@ -156,6 +176,16 @@ describe('camera coordinates and optics', () => {
 });
 
 describe('scenario interchange', () => {
+  it('preserves the IMX678 and its lens settings in a saved scenario', () => {
+    const scenario = createDefaultScenario();
+    const main = scenario.cameras[0];
+    main.sensorId = 'imx678';
+    main.lens.imageCircleMm = 9;
+    const parsed = parseScenario(JSON.parse(JSON.stringify(scenario)));
+    expect(parsed.cameras[0]).toEqual(main);
+    expect(getSensor(parsed.cameras[0].sensorId)).toMatchObject({ width: 3840, height: 2160, pixelPitchUm: 2 });
+  });
+
   it('round trips version 1 and supports an editable custom sensor', () => {
     const scenario = createDefaultScenario();
     expect(parseScenario(JSON.parse(JSON.stringify(scenario)))).toEqual(scenario);

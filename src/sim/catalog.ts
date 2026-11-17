@@ -1,8 +1,14 @@
 import type { CameraConfig, Scenario, SensorProfile, Target } from './types';
 
 const PI_CAMERAS = 'https://www.raspberrypi.com/documentation/accessories/camera.html';
+const DEFAULT_SENSOR_ID = 'imx676';
 
 export const SENSOR_PROFILES: readonly SensorProfile[] = [
+  {
+    id: 'imx676', name: 'Sony IMX676', width: 3536, height: 3536, pixelPitchUm: 2,
+    shutter: 'rolling', source: 'https://www.sony-semicon.com/files/62/flyer_security/IMX676-AACR1_Flyer.pdf',
+    note: 'Sony recommended recording area, all-pixel mode.',
+  },
   {
     id: 'imx678', name: 'Sony IMX678', width: 3840, height: 2160, pixelPitchUm: 2,
     shutter: 'rolling', source: 'https://www.sony-semicon.com/files/62/flyer_security/IMX678-AAQR1_Flyer.pdf',
@@ -49,23 +55,18 @@ export function getSensor(id: string, customSensor?: Scenario['customSensor']): 
 // Approximate scene centers on the reference ellipsoid. Landmark elevations are omitted.
 export const TARGETS: readonly Target[] = [
   { id: 'stanford', name: 'Stanford', latitudeDeg: 37.4275, longitudeDeg: -122.1697, heightM: 0 },
-  { id: 'goldenGate', name: 'Golden Gate Bridge', latitudeDeg: 37.8199, longitudeDeg: -122.4783, heightM: 0 },
-  { id: 'sanFrancisco', name: 'San Francisco', latitudeDeg: 37.7920, longitudeDeg: -122.4070, heightM: 0 },
-  { id: 'bayBridge', name: 'Bay Bridge', latitudeDeg: 37.8042, longitudeDeg: -122.3750, heightM: 0 },
-  { id: 'southBay', name: 'South Bay', latitudeDeg: 37.4800, longitudeDeg: -122.0950, heightM: 0 },
-  { id: 'wholeBay', name: 'San Francisco Bay', latitudeDeg: 37.6820, longitudeDeg: -122.2770, heightM: 0 },
 ];
 
 function wideCamera(id: 'wideA' | 'wideB', faceY: number): CameraConfig {
-  const sensor = getSensor('imx678');
-  const imageCircleMm = sensor.height * sensor.pixelPitchUm / 1000;
+  const sensor = getSensor(DEFAULT_SENSOR_ID);
+  const imageCircleMm = Math.min(sensor.width, sensor.height) * sensor.pixelPitchUm / 1000;
   return {
     id, name: id === 'wideA' ? 'Wide A' : 'Wide B', sensorId: sensor.id,
     lens: {
       focalLengthMm: imageCircleMm / 2 / (95 * Math.PI / 180), fNumber: 2.8,
       projection: 'equidistant', maxFovDeg: 190, imageCircleMm, extraBlurPx: 0,
     },
-    positionBodyM: [id === 'wideA' ? -0.034 : 0.034, faceY, 0.038],
+    positionBodyM: [id === 'wideA' ? -0.035 : 0.035, faceY, 0.040],
     yawDeg: 0, pitchDeg: 0, rollDeg: 0,
     exposureMs: 1, jitterArcsec: 0, readoutMs: 0, housingDiameterMm: 14, housingLengthMm: 10,
   };
@@ -82,12 +83,12 @@ export function createDefaultScenario(): Scenario {
     },
     cameras: [
       {
-        id: 'main', name: 'Main', sensorId: 'imx678',
+        id: 'main', name: 'Main', sensorId: DEFAULT_SENSOR_ID,
         lens: {
-          focalLengthMm: 50, fNumber: 4, projection: 'rectilinear',
-          maxFovDeg: 180, imageCircleMm: 9, extraBlurPx: 0,
+          focalLengthMm: 25, fNumber: 4, projection: 'rectilinear',
+          maxFovDeg: 180, imageCircleMm: 11, extraBlurPx: 0,
         },
-        positionBodyM: [-0.023, 0.055, 0.012], yawDeg: 0, pitchDeg: 0, rollDeg: 0,
+        positionBodyM: [-0.023, 0.055, -0.022], yawDeg: 0, pitchDeg: 0, rollDeg: 0,
         exposureMs: 1, jitterArcsec: 0, readoutMs: 0, housingDiameterMm: 24, housingLengthMm: 35,
       },
       wideCamera('wideA', 0.055),

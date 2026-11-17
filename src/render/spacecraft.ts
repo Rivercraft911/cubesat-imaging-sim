@@ -17,7 +17,6 @@ function spacecraftMaterials() {
     aluminium: standard(new THREE.Color(0.57, 0.60, 0.63), 0.83, 0.31),
     chassis: standard(0xbebcb1, 0.32, 0.51),
     pcb: standard(new THREE.Color(0.72, 0.75, 0.76), 0, 0.42),
-    ceramic: standard(new THREE.Color(0.63, 0.61, 0.48), 0.10, 0.58),
     black: standard(new THREE.Color(0.012, 0.015, 0.018), 0.08, 0.38),
     patch: standard(new THREE.Color(0.61, 0.42, 0.115), 0.78, 0.26),
     grid: standard(new THREE.Color(0.045, 0.050, 0.060), 0.50, 0.40),
@@ -53,6 +52,30 @@ function box(parent: THREE.Object3D, material: THREE.Material, center: Vec3, siz
     ? new RoundedBoxGeometry(...size, 2, Math.min(bevel, ...size.map(length => length / 4)))
     : new THREE.BoxGeometry(...size);
   return mesh(parent, geometry, material, center);
+}
+
+function planarBoardOutline(cx: number, cz: number, width: number, length: number, radius: number) {
+  const left = cx - width / 2;
+  const right = cx + width / 2;
+  const bottom = -cz - length / 2;
+  const top = -cz + length / 2;
+  const shape = new THREE.Shape();
+  shape.moveTo(left + radius, bottom);
+  shape.lineTo(right - radius, bottom);
+  shape.quadraticCurveTo(right, bottom, right, bottom + radius);
+  shape.lineTo(right, top - radius);
+  shape.quadraticCurveTo(right, top, right - radius, top);
+  shape.lineTo(left + radius, top);
+  shape.quadraticCurveTo(left, top, left, top - radius);
+  shape.lineTo(left, bottom + radius);
+  shape.quadraticCurveTo(left, bottom, left + radius, bottom);
+  shape.closePath();
+  return shape;
+}
+
+function pcbLayer(root: THREE.Group, material: THREE.Material, profile: THREE.Shape, y: number, thickness: number) {
+  const geometry = new THREE.ExtrudeGeometry(profile, { depth: thickness, bevelEnabled: false, curveSegments: 4 });
+  mesh(root, geometry, material, [0, y, 0]).rotation.x = -Math.PI / 2;
 }
 
 /** Illustrative III–V assembly with cropped corners, dense fingers, and two busbars.
@@ -96,23 +119,21 @@ function instrumentDeck(root: THREE.Group, m: Materials, w: number, d: number, h
   const s = Math.min(w / 0.1, d / 0.1, h / 0.1135);
   const face = d / 2 + s * 0.00165;
   const boardThickness = s * 0.0016;
-  box(root, m.pcb, [0, face - boardThickness / 2, 0], [w * 0.87, boardThickness, h * 0.859], s * 0.00045);
-
-  solarCell(root, m, [w * 0.20, face, h * (0.005 / 0.1135)], cellScale, Math.PI / 2);
-  const patchX = -w * 0.22;
-  const patchZ = -h * (0.033 / 0.1135);
-  const patchWidth = w * 0.28;
-  const patchLength = h * (0.024 / 0.1135);
-  const groundPlate = s * 0.00045;
-  const dielectric = s * 0.0020;
-  const radiator = s * 0.00025;
-  box(root, m.aluminium, [patchX, face + groundPlate / 2, patchZ], [patchWidth * 1.08, groundPlate, patchLength * 1.08]);
-  box(root, m.ceramic, [patchX, face + groundPlate + dielectric / 2, patchZ], [patchWidth, dielectric, patchLength], s * 0.00055);
-  box(root, m.patch, [patchX, face + groundPlate + dielectric + radiator / 2, patchZ], [patchWidth * 0.87, radiator, patchLength * 0.87], s * 0.00010);
+  const board = planarBoardOutline(0, 0, w * 0.87, h * 0.859, s * 0.0006);
+  const patch = planarBoardOutline(w * 0.22, -h * (0.025 / 0.1135), w * 0.28, h * (0.024 / 0.1135), s * 0.00055);
+  const foilThickness = s * 0.000035;
+  const maskClearance = s * 0.000020;
+  // Expose copper in the board surface with a soldermask-height recess.
+  board.holes.push(patch);
+  pcbLayer(root, m.pcb, board, face - boardThickness, boardThickness);
+  pcbLayer(root, m.pcb, patch, face - boardThickness, boardThickness - maskClearance - foilThickness);
+  pcbLayer(root, m.patch, patch, face - maskClearance - foilThickness, foilThickness);
+  solarCell(root, m, [0, face, h * (0.016 / 0.1135)], cellScale, 0);
 
   for (const x of [-1, 1]) for (const z of [-1, 1]) {
     const cx = x * w * 0.405;
-    const cz = z * h * 0.402;
+    // The upper-left mounting screw sits below the fisheye's edge mount.
+    const cz = z * h * (x < 0 && z > 0 ? 0.282 : 0.402);
     const coreSurface = d / 2 - Math.min(w, d, h) * 0.04;
     const clearance = face - boardThickness - coreSurface;
     const spacerRadius = s * 0.0023;
@@ -160,6 +181,7 @@ function wing(root: THREE.Group, m: Materials, body: Scenario['body'], side: num
   const thickness = scale * 0.0013;
   const rimDepth = scale * 0.0024;
   const rimWidth = scale * 0.0032;
+  const dividerWidth = scale * 0.0017;
   box(leaf, m.pcb, [0, 0, 0], [panelWidthM, thickness, panelLengthM], thickness / 3);
   for (const edge of [-1, 1]) {
     box(leaf, m.aluminium, [edge * (panelWidthM - rimWidth) / 2, 0, 0],
@@ -167,11 +189,12 @@ function wing(root: THREE.Group, m: Materials, body: Scenario['body'], side: num
     box(leaf, m.aluminium, [0, 0, edge * (panelLengthM - rimWidth) / 2],
       [panelWidthM - 2 * rimWidth, rimDepth, rimWidth], scale * 0.0003);
   }
-  box(leaf, m.aluminium, [0, 0, 0], [panelWidthM - 2 * rimWidth, rimDepth, scale * 0.0017], scale * 0.0002);
+  box(leaf, m.aluminium, [0, 0, 0], [panelWidthM - 2 * rimWidth, rimDepth, dividerWidth], scale * 0.0002);
 
   // Both cells turn their clipped corners away from the hinge.
+  const rowCenter = (panelLengthM / 2 - rimWidth + dividerWidth / 2) / 2;
   for (const row of [-1, 1]) {
-    solarCell(leaf, m, [0, thickness / 2, row * panelLengthM * 0.236], cellScale, side < 0 ? Math.PI : 0);
+    solarCell(leaf, m, [0, thickness / 2, row * rowCenter], cellScale, side < 0 ? Math.PI : 0);
   }
 
   const radius = Math.min(panelWidthM, panelLengthM) * 0.027;
