@@ -19,14 +19,14 @@ import { LinkStrip } from './LinkStrip';
 import { useEngine } from './useEngine';
 import { useImagery } from './useImagery';
 import { editCamera } from '../sim/camera-edit';
+import { DEFAULT_SOURCE_SELECTION, displaySelection, selectSourceCamera } from './view-selection';
 
 export default function App() {
   const [scenario, setScenario] = useState<Scenario>(() => applyStanfordPassPreset(createDefaultScenario(), 'terminator'));
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [view, setView] = useState<RenderView>('image');
-  const [cameraId, setCameraId] = useState<CameraId>('main');
+  const [source, setSource] = useState(DEFAULT_SOURCE_SELECTION);
   const [inspection, setInspection] = useState<'fit' | 'native'>('fit');
   const [panoramaProjection, setPanoramaProjection] = useState<'perspective' | 'equirectangular'>('perspective');
   const [panoramaFov, setPanoramaFov] = useState(90);
@@ -56,22 +56,25 @@ export default function App() {
   const linkActive = downlink.state === 'receiving' || downlink.state === 'starting';
   const linkStart = liveLinkStartAvailability(time, status.ready);
   const received = linkActive && feed === 'received';
-  const displayView = received ? (downlink.receiver === '360' ? 'panorama' : 'image') : view;
+  const { view: displayView, cameraId: activeCameraId } = displaySelection(source, received ? downlink.receiver : null);
   const imageryScenario = useMemo(() => comparison ? withMainFocalLength(comparison.scenario, Math.max(...comparisonFocals)) : scenario, [comparison, comparisonFocals, scenario]);
   const { image, baseImage, progress } = useImagery(engine, version, imageryScenario, comparison?.timeS ?? time, comparisonBusy);
 
-  const activeCameraId = received ? downlink.receiver === 'main' ? 'main' : 'wideA' : cameraId;
   const camera = scenario.cameras.find(item => item.id === activeCameraId)!;
   const sensor = getSensor(camera.sensorId, scenario.customSensor);
   const sample = useMemo(() => sampleState(scenario, time), [scenario, time]);
   const metrics = useMemo(() => computeMetrics(scenario, activeCameraId, time), [scenario, activeCameraId, time]);
 
   useEffect(() => { engine.current?.updateScenario(scenario, time); }, [scenario, time, version, engine]);
-  useEffect(() => { engine.current?.setView(displayView, received && downlink.receiver === 'main' ? 'main' : cameraId); }, [displayView, received, downlink.receiver, cameraId, version, engine]);
+  useEffect(() => { engine.current?.setView(displayView, activeCameraId); }, [displayView, activeCameraId, version, engine]);
   useEffect(() => { engine.current?.setSelectedCamera?.(displayView === 'space' ? activeCameraId : null); }, [displayView, activeCameraId, version, engine]);
   useEffect(() => {
     const instance = engine.current;
-    instance?.setCameraSelectHandler?.(id => { setCameraId(id === 'main' ? id : 'wideA'); setFeed('source'); setPanel('optics'); });
+    instance?.setCameraSelectHandler?.(id => {
+      setSource(current => selectSourceCamera(current, 'space', id));
+      setFeed('source');
+      setPanel('optics');
+    });
     return () => instance?.setCameraSelectHandler?.(null);
   }, [version, engine]);
   useEffect(() => { engine.current?.setInspection(inspection); }, [inspection, version, engine]);
@@ -147,7 +150,7 @@ export default function App() {
     if (!engine.current || capturing) return;
     setCapturing(true);
     setNotice('');
-    const id = displayView === 'panorama' ? 'panorama' : received ? 'main' : cameraId;
+    const id = displayView === 'panorama' ? 'panorama' : activeCameraId;
     try {
       const blob = await engine.current.capture({ cameraId: id });
       download(blob, `${scenario.target.id}-${id === 'panorama' ? '360' : id}-${Math.round(time)}s.png`);
@@ -178,15 +181,12 @@ export default function App() {
   };
 
   const selectView = (next: RenderView) => {
-    setFeed('source'); setView(next);
-    if (next === 'panorama' || (next === 'space' && cameraId === 'wideB')) setCameraId('wideA');
+    setFeed('source');
+    setSource(current => ({ ...current, view: next }));
   };
-  const selectFeed = (next: Feed) => {
-    if (next === 'source' && linkActive) {
-      setView(downlink.receiver === '360' ? 'panorama' : 'image');
-      if (downlink.receiver === 'main') setCameraId('main');
-    }
-    setFeed(next);
+  const selectCamera = (id: CameraId) => {
+    setFeed('source');
+    setSource(current => selectSourceCamera(current, displayView, id));
   };
 
   return (
@@ -199,7 +199,7 @@ export default function App() {
         <ImageWorkspace view={displayView} camera={camera} sensor={sensor} sample={sample}
           target={scenario.target} altitudeM={scenario.altitudeM} bodyWidthM={scenario.body.widthM}
           canvas={canvas} host={host} status={status} metrics={metrics} image={image} progress={progress}
-          feed={feed} setFeed={selectFeed} linkActive={linkActive} downlink={downlink}
+          feed={feed} setFeed={setFeed} linkActive={linkActive} downlink={downlink}
           inspection={inspection} setInspection={mode => { engine.current?.setInspection(mode); setInspection(mode); }} quality={quality} setQuality={setQuality}
           panoramaProjection={panoramaProjection} setPanoramaProjection={setPanoramaProjection}
           panoramaFov={panoramaFov} setPanoramaFov={setPanoramaFov}
@@ -212,7 +212,7 @@ export default function App() {
           linkControls={linkControls} ready={linkStart.enabled} />}
       </div>
       <OpticalControls camera={camera} cameras={scenario.cameras} panel={panel} pairedView={displayView !== 'image'}
-        onCamera={id => { setCameraId(id); selectView(displayView === 'space' ? 'space' : displayView === 'panorama' && id !== 'main' ? 'panorama' : 'image'); }}
+        onCamera={selectCamera}
         onFocalLength={focalLengthMm => changeCamera({ lens: { ...camera.lens, focalLengthMm } })}
         onPanel={id => setPanel(current => current === id ? null : id)} />
       <Timeline time={time} onFrameTime={setTime} onSeek={scrubTime} playing={playing && !linkActive} setPlaying={changePlayback}
