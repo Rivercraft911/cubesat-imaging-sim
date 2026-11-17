@@ -254,8 +254,9 @@ export async function createImagingEngine(
     function sensorInfo(c: CameraConfig) {
       return getSensor(c.sensorId, scenario.customSensor);
     }
+    let hardwareGeometryRevision = 0;
     function updateWorld() {
-      space.updateWorld(scenario, sample);
+      if (space.updateWorld(scenario, sample)) hardwareGeometryRevision++;
     }
     function configureSensor(id: CameraId) {
       const c = config(id),
@@ -304,12 +305,7 @@ export async function createImagingEngine(
       target.texture.generateMipmaps = true;
       target.texture.minFilter = THREE.LinearMipmapLinearFilter;
       target.setSize(s.width, s.height);
-      hardware.update(
-        scenario,
-        sample,
-        sceneRevision,
-        id === "main" ? "main" : "wide",
-      );
+      hardware.update(config(id), sample, hardwareGeometryRevision);
       renderSensorTo(id, target);
       nativeKeys.set(id, key);
       return target;
