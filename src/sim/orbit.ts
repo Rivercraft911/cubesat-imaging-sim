@@ -1,7 +1,8 @@
 import { EARTH_EQUATORIAL_RADIUS_M, EARTH_GM_M3_S2, EARTH_POLAR_RADIUS_M, geodeticToEcef, localUp } from './earth';
-import { add, axisRotation, basisRotation, clamp, cross, DEG, dot, length, normalize, rotate, rotationZ, scale, sub, TAU, wrap } from './math';
+import { spacecraftAttitude } from './attitude';
+import { add, clamp, cross, DEG, dot, length, normalize, rotationZ, scale, sub, TAU, wrap } from './math';
 import { DAY_S, daysSinceJ2000, greenwichSiderealRad, MEAN_SUN_RATE_RAD_S, meanSunRaRad, SIDEREAL_RATE_RAD_S, sunDirectionEcef } from './sun';
-import type { Quat, Scenario, SimulationSample, Vec3 } from './types';
+import type { Scenario, SimulationSample, Vec3 } from './types';
 
 const J2 = 1.08263e-3;
 const EARTH_NORTH: Vec3 = [0, 0, 1];
@@ -68,26 +69,6 @@ function subsatelliteGroundSpeed(position: Vec3, velocity: Vec3): number {
   return length(add(scale(velocity, radialFactor), scale(position, radialFactorRate)));
 }
 
-function attitude(scenario: Scenario, position: Vec3, target: Vec3, sun: Vec3): Quat {
-  let forward = normalize(sub(target, position));
-  if (scenario.pointing === 'nadir') forward = normalize(scale(position, -1));
-  if (scenario.pointing === 'sun') forward = sun;
-
-  // Image up is the projection of north onto the plane normal to the boresight.
-  // Use Greenwich as an arbitrary roll reference for the polar singularity.
-  const east = cross(forward, EARTH_NORTH);
-  let right = normalize(length(east) > 1e-9 ? east : cross(forward, [1, 0, 0]));
-  const up = normalize(cross(right, forward));
-  if (scenario.pointing !== 'sun') {
-    const tilt = axisRotation(up, -scenario.offNadirDeg * DEG);
-    forward = rotate(tilt, forward);
-    right = rotate(tilt, right);
-  }
-
-  const roll = axisRotation(forward, scenario.rollDeg * DEG);
-  return basisRotation(rotate(roll, right), forward, rotate(roll, up));
-}
-
 /** Build a circular, target-centered pass on the requested UTC day. */
 export function sampleState(scenario: Scenario, timeS = 0): SimulationSample {
   const { latitudeDeg, longitudeDeg, heightM } = scenario.target;
@@ -123,7 +104,7 @@ export function sampleState(scenario: Scenario, timeS = 0): SimulationSample {
 
   return {
     timeS, positionEcefM: position, velocityEcefMps: velocity,
-    qEcefFromBody: attitude(scenario, position, targetEcefM, sun),
+    qEcefFromBody: spacecraftAttitude(scenario, position, targetEcefM, sun),
     sunDirectionEcef: sun, targetEcefM, inclinationDeg: inclinationRad / DEG,
     sunElevationDeg: Math.asin(clamp(dot(sun, upAtTarget), -1, 1)) / DEG,
     epochISO: new Date(epochMs).toISOString(),
