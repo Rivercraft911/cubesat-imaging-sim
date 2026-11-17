@@ -1,0 +1,108 @@
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { Bounds } from "./bounds";
+
+const bounds: Bounds = [20, 20, 80, 80];
+const manifestUrl = "/cubesat-imaging-sim/assets/shots/manifest.json";
+let preparedShot: typeof import("./provider").preparedShot;
+
+beforeEach(async () => {
+  vi.resetModules();
+  vi.stubEnv("BASE_URL", "/cubesat-imaging-sim/");
+  ({ preparedShot } = await import("./provider"));
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+it.each([
+  { failure: "an HTTP error", fetch: async () => new Response(null, { status: 503 }) },
+  {
+    failure: "a network error",
+    fetch: async () => {
+      throw new TypeError("Network request failed");
+    },
+  },
+  { failure: "invalid JSON", fetch: async () => new Response("not JSON") },
+  { failure: "a non-array response", fetch: async () => Response.json({}) },
+])("retries the prepared index after $failure", async ({ fetch }) => {
+  const entry = {
+    id: "prepared",
+    file: "prepared.webp",
+    width: 100,
+    height: 100,
+    boundsMercator: [0, 0, 100, 100],
+    sourceResolutionM: 1,
+    attribution: "prepared",
+    transparentPixels: 0,
+  };
+  const request = vi.fn<typeof globalThis.fetch>()
+    .mockImplementationOnce(fetch)
+    .mockResolvedValueOnce(Response.json([entry]))
+    .mockImplementation(async () => new Response());
+  const bitmap = { width: 72, height: 72, close: vi.fn() };
+  vi.stubGlobal("fetch", request);
+  vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue(bitmap));
+  const signal = new AbortController().signal;
+
+  await expect(preparedShot(bounds, signal)).resolves.toBeNull();
+  await expect(preparedShot(bounds, signal)).resolves.toMatchObject({ image: bitmap });
+  await expect(preparedShot(bounds, signal)).resolves.toMatchObject({ image: bitmap });
+
+  expect(request.mock.calls.map(([url]) => url)).toEqual([
+    manifestUrl,
+    manifestUrl,
+    "/cubesat-imaging-sim/assets/shots/prepared.webp",
+    "/cubesat-imaging-sim/assets/shots/prepared.webp",
+  ]);
+});
+
+it("falls back when the manifest times out and can retry", async () => {
+  const deadline = new AbortController();
+  const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValueOnce(deadline.signal);
+  const request = vi.fn<typeof fetch>()
+    .mockImplementationOnce(async (_url, init) => {
+      const signal = init!.signal!;
+      const stream = new ReadableStream({
+        start(controller) {
+          signal.addEventListener("abort", () => controller.error(signal.reason), { once: true });
+        },
+      });
+      return new Response(stream);
+    })
+    .mockResolvedValueOnce(Response.json([]));
+  vi.stubGlobal("fetch", request);
+  const signal = new AbortController().signal;
+
+  const first = preparedShot(bounds, signal);
+  expect(timeout).toHaveBeenCalledWith(3000);
+  expect(request).toHaveBeenCalledWith(manifestUrl, { signal: deadline.signal });
+  deadline.abort(new DOMException("Request timed out", "TimeoutError"));
+  await expect(first).resolves.toBeNull();
+  await expect(preparedShot(bounds, signal)).resolves.toBeNull();
+  expect(request).toHaveBeenCalledTimes(2);
+});
+
+it("lets one waiting view cancel without aborting the shared manifest", async () => {
+  let resolveManifest!: (response: Response) => void;
+  const manifest = new Promise<Response>((resolve) => {
+    resolveManifest = resolve;
+  });
+  const request = vi.fn<typeof fetch>(() => manifest);
+  vi.stubGlobal("fetch", request);
+  const cancelled = new AbortController();
+  const active = new AbortController();
+
+  const obsolete = preparedShot(bounds, cancelled.signal);
+  const current = preparedShot(bounds, active.signal);
+  cancelled.abort();
+  await expect(obsolete).rejects.toBe(cancelled.signal.reason);
+  expect(request.mock.calls[0][1]?.signal?.aborted).toBe(false);
+
+  resolveManifest(Response.json([]));
+  await expect(current).resolves.toBeNull();
+  await expect(preparedShot(bounds, active.signal)).resolves.toBeNull();
+  expect(request).toHaveBeenCalledOnce();
+});

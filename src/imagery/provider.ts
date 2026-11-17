@@ -193,16 +193,44 @@ type PreparedImage = Omit<GroundImage, "image"> & {
   height: number;
   transparentPixels?: number;
 };
+const PREPARED_INDEX_TIMEOUT_MS = 3000;
 let preparedIndex: Promise<PreparedImage[]> | undefined;
+
+async function awaitPreparedIndex(signal: AbortSignal): Promise<PreparedImage[]> {
+  signal.throwIfAborted();
+  // Share the manifest across views. A cancelled view only stops its own wait.
+  preparedIndex ??= fetch(publicAsset("shots/manifest.json"), {
+    signal: AbortSignal.timeout(PREPARED_INDEX_TIMEOUT_MS),
+  })
+    .then(async (response) => {
+      if (!response.ok) throw new Error("Prepared imagery manifest unavailable");
+      const list = await response.json();
+      if (!Array.isArray(list)) throw new Error("Invalid prepared imagery manifest");
+      return list as PreparedImage[];
+    })
+    .catch(() => {
+      preparedIndex = undefined;
+      return [];
+    });
+
+  let cancel!: () => void;
+  const cancelled = new Promise<never>((_, reject) => {
+    cancel = () => reject(signal.reason);
+    signal.addEventListener("abort", cancel, { once: true });
+  });
+  try {
+    return await Promise.race([preparedIndex, cancelled]);
+  } finally {
+    signal.removeEventListener("abort", cancel);
+  }
+}
+
 export async function preparedShot(
   bounds: Bounds,
   signal: AbortSignal,
   finerThanM = Infinity,
 ): Promise<GroundImage | null> {
-  preparedIndex ??= fetch(publicAsset("shots/manifest.json"))
-    .then((r) => (r.ok ? (r.json() as Promise<PreparedImage[]>) : []))
-    .catch(() => []);
-  const list = await preparedIndex;
+  const list = await awaitPreparedIndex(signal);
   signal.throwIfAborted();
   const entry = list
     .filter(
