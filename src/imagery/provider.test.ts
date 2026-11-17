@@ -143,3 +143,25 @@ it.each(["timeout", "caller cancellation"])(
     expect(request.mock.calls.map(([url]) => url)).toEqual([manifestUrl, rasterUrl, rasterUrl]);
   },
 );
+
+it("selects a single pass when it covers the footprint at the sensor's spacing", async () => {
+  const samePass = {
+    ...entry, id: "same-pass", file: "same-pass.webp",
+    sourceResolutionM: 2, singlePass: true,
+  };
+  const request = vi.fn<typeof fetch>().mockImplementation(async (url) =>
+    url === manifestUrl ? Response.json([entry, samePass]) : new Response(),
+  );
+  const decode = vi.fn().mockResolvedValue({ width: 100, height: 100, close: vi.fn() });
+  vi.stubGlobal("fetch", request);
+  vi.stubGlobal("createImageBitmap", decode);
+  const signal = new AbortController().signal;
+
+  await expect(preparedShot(bounds, signal, Infinity, {
+    sensorSpacingM: 2.5, prefetch: true,
+  })).resolves.toMatchObject({ id: "same-pass", boundsMercator: samePass.boundsMercator });
+  expect(decode.mock.lastCall).toHaveLength(1);
+  await expect(preparedShot(bounds, signal, Infinity, {
+    sensorSpacingM: 1.5,
+  })).resolves.toMatchObject({ id: "prepared:14:14:86:86" });
+});

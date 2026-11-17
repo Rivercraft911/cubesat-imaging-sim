@@ -3,6 +3,7 @@ import { publicAsset } from "../assets";
 import type { Bounds } from "./bounds";
 import { cacheImage, cachedImage } from "./cache";
 import { featherCoverage } from "./coverage";
+import { compareImagery, resolvesSinglePass, type ImagerySource } from "./lod";
 import { TILE_PIXELS, type ShotPlan } from "./plan";
 import { imagerySlot } from "./request-slots";
 
@@ -187,7 +188,7 @@ export async function shotImage(
   }
 }
 
-type PreparedImage = Omit<GroundImage, "image"> & {
+type PreparedImage = Omit<GroundImage, "image"> & ImagerySource & {
   file: string;
   width: number;
   height: number;
@@ -230,20 +231,21 @@ export async function preparedShot(
   bounds: Bounds,
   signal: AbortSignal,
   finerThanM = Infinity,
-  priority?: RequestPriority,
-): Promise<GroundImage | null> {
+  options: { sensorSpacingM?: number; prefetch?: boolean } = {},
+): Promise<(GroundImage & ImagerySource) | null> {
   const list = await awaitPreparedIndex(signal);
   signal.throwIfAborted();
+  const { sensorSpacingM = 0, prefetch = false } = options;
   const entry = list
     .filter(
       (p) =>
-        p.sourceResolutionM < finerThanM &&
+        (p.sourceResolutionM < finerThanM || resolvesSinglePass(p, sensorSpacingM)) &&
         p.boundsMercator[0] <= bounds[0] &&
         p.boundsMercator[1] <= bounds[1] &&
         p.boundsMercator[2] >= bounds[2] &&
         p.boundsMercator[3] >= bounds[3],
     )
-    .sort((a, b) => a.sourceResolutionM - b.sourceResolutionM)[0];
+    .sort((a, b) => compareImagery(a, b, sensorSpacingM))[0];
   if (!entry) return null;
   const downloadSignal = AbortSignal.any([
     signal,
@@ -251,11 +253,21 @@ export async function preparedShot(
   ]);
   const response = await fetch(publicAsset(`shots/${entry.file}`), {
     signal: downloadSignal,
-    ...(priority ? { priority } : {}),
+    ...(prefetch ? { priority: "low" } : {}),
   });
   if (!response.ok) throw new Error("Prepared imagery unavailable");
   const blob = await response.blob();
   downloadSignal.throwIfAborted();
+  // The native Sentinel crop is already bounded to the pass. Keep its margin
+  // available while the spacecraft moves, so later edits reuse this bitmap.
+  if (prefetch && entry.singlePass) {
+    const image = await createImageBitmap(blob);
+    if (downloadSignal.aborted) {
+      image.close();
+      downloadSignal.throwIfAborted();
+    }
+    return { ...entry, image };
+  }
   const [west, south, east, north] = entry.boundsMercator;
   const dx = (east - west) / entry.width,
     dy = (north - south) / entry.height;

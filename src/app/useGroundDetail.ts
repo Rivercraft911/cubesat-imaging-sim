@@ -80,6 +80,7 @@ export function useGroundDetail(
           satellite,
           latitudeDeg: live.target.latitudeDeg,
           desiredPixelM: Math.max(0.6, metrics.gsdM / 1.5),
+          sensorSpacingM: metrics.gsdM,
           aerial: needsAerial(
             metrics.gsdM,
             regional.sourceResolutionM,
@@ -105,7 +106,8 @@ export function useGroundDetail(
             : item,
         ),
       };
-      loader.prefetch(shotBounds(zoomed, frameTime));
+      const { gsdM } = computeMetrics(zoomed, "main", frameTime);
+      loader.prefetch(shotBounds(zoomed, frameTime), gsdM);
     };
     tick();
     const poll = setInterval(tick, 350);

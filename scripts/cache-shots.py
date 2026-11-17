@@ -144,8 +144,11 @@ def main():
         with ThreadPoolExecutor(max_workers=4) as pool:
             built = [build_shot(shot, pool, stage) for shot in selected]
         manifest_path = DEST / 'manifest.json'
-        if name is not None and manifest_path.exists():
-            manifest = {entry['id']: entry for entry in json.loads(manifest_path.read_text())}
+        if manifest_path.exists():
+            manifest = {
+                entry['id']: entry for entry in json.loads(manifest_path.read_text())
+                if name is not None or entry.get('source') != SERVICE
+            }
         else:
             manifest = {}
         manifest.update((entry['id'], entry) for entry in built)

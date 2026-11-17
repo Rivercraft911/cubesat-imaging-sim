@@ -161,5 +161,118 @@
       }
     ],
     "sha256": "c569dcbb9dcb8ce0df719899f020861196d21dc51d41113da3e83336ab841c7c"
+  },
+  {
+    "id": "sentinel-2b-stanford-sentinel-2025-03-24",
+    "file": "stanford-sentinel.webp",
+    "width": 4928,
+    "height": 5376,
+    "boundsMercator": [
+      -13630985.995810404,
+      4465084.681072243,
+      -13568929.704108853,
+      4532782.45383757
+    ],
+    "boundsWgs84": [
+      -122.4492305765564,
+      37.18614373449234,
+      -121.89176942344358,
+      37.66907743900262
+    ],
+    "outputCrs": "EPSG:3857",
+    "outputTransform": [
+      12.592591660217437,
+      0.0,
+      -13630985.995810404,
+      0.0,
+      -12.59259166021712,
+      4532782.45383757
+    ],
+    "mapGridSpacingM": [
+      12.592591660217437,
+      12.59259166021712
+    ],
+    "sourceResolutionM": 10.000000000000263,
+    "resolutionNote": "Output ground spacing approximated at the mosaic center by EPSG:3857 spacing times cos(latitude).",
+    "nativeCrs": "EPSG:32610",
+    "nativeGridSpacingM": 10,
+    "mosaicInputGridSpacingM": 10,
+    "attribution": "Contains modified Copernicus Sentinel data 2025",
+    "license": "https://sentinels.copernicus.eu/documents/247904/690755/Sentinel_Data_Legal_Notice",
+    "source": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-c1-l2a",
+    "sourceAssets": [
+      {
+        "id": "S2B_T10SEG_20250324T190338_L2A",
+        "item": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-c1-l2a/items/S2B_T10SEG_20250324T190338_L2A",
+        "visualCog": "https://e84-earth-search-sentinel-data.s3.us-west-2.amazonaws.com/sentinel-2-c1-l2a/10/S/EG/2025/3/S2B_T10SEG_20250324T190338_L2A/TCI.tif",
+        "checksumMultihash": "1220e412f4102bee978ea8c1f27e9985235963579289bfd18232a1ebae7a8bd07f73",
+        "sensedUTC": "2025-03-24T19:04:12.525000Z",
+        "tileCloudCoverPct": 0.00358,
+        "nativeShape": [
+          10980,
+          10980
+        ],
+        "nativeTransform": [
+          10,
+          0,
+          499980,
+          0,
+          -10,
+          4200000
+        ]
+      },
+      {
+        "id": "S2B_T10SFG_20250324T190338_L2A",
+        "item": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-c1-l2a/items/S2B_T10SFG_20250324T190338_L2A",
+        "visualCog": "https://e84-earth-search-sentinel-data.s3.us-west-2.amazonaws.com/sentinel-2-c1-l2a/10/S/FG/2025/3/S2B_T10SFG_20250324T190338_L2A/TCI.tif",
+        "checksumMultihash": "1220fdf2b7c66613d11ac925a97ce30f12d0d5530980578c5da4bccd75570d7d52cf",
+        "sensedUTC": "2025-03-24T19:04:09.062000Z",
+        "tileCloudCoverPct": 0.000421,
+        "nativeShape": [
+          10980,
+          10980
+        ],
+        "nativeTransform": [
+          10,
+          0,
+          600000,
+          0,
+          -10,
+          4200000
+        ]
+      }
+    ],
+    "acquisitionDate": "2025-03-24",
+    "retrievedUTC": "2026-11-17T18:15:10.597241+00:00",
+    "processing": "Same-pass Sentinel-2B L2A visual COGs (B04/B03/B02). Mosaicked on their aligned 10 m UTM grid, first valid pixel in listed order, then reprojected with GDAL area-average to the regional Web Mercator grid. Black NoData is excluded. No synthetic fill, sharpening, or extra color mapping. WebP quality 90, method 4.",
+    "coverageCheck": {
+      "validPixels": 26492928,
+      "sampleWaterRgbBeforeWebp": {
+        "southBay": {
+          "lonLat": [
+            -122.18,
+            37.55
+          ],
+          "rgb": [
+            17,
+            37,
+            29
+          ]
+        }
+      }
+    },
+    "software": {
+      "rasterio": "1.5.2",
+      "gdal": "3.12.2",
+      "numpy": "2.2.5",
+      "pillow": "11.2.1",
+      "libwebp": "1.5.0"
+    },
+    "sha256": "27865de8c27930485e9008162e37e8784d7944686038c035f247f1130cee13d3",
+    "singlePass": true,
+    "transparentPixels": 0,
+    "targetIds": [
+      "stanford"
+    ]
   }
 ]

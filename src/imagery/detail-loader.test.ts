@@ -243,7 +243,7 @@ it("warms a prepared image without showing its edges and publishes it immediatel
   loader.prefetch(zoomed);
   loader.prefetch(zoomed);
   expect(prepared).toHaveBeenCalledOnce();
-  expect(prepared.mock.lastCall?.[3]).toBe("low");
+  expect(prepared.mock.lastCall?.[3]).toMatchObject({ prefetch: true });
   warm.resolve(patch);
   await settle();
   expect(publish.mock.calls).toEqual([[satellite]]);
@@ -283,6 +283,37 @@ it("reuses a pending prefetch after the zoom and discards a prefetch from a repl
   await settle();
   expect((obsolete.image as ImageBitmap).close).toHaveBeenCalledOnce();
   expect(publish.mock.calls).toEqual([[satellite], [nearby]]);
+  expect(prepared).toHaveBeenCalledTimes(2);
+  expect(full).not.toHaveBeenCalled();
+  loader.dispose();
+});
+
+it("prefers adequate single-pass coverage over finer imagery with acquisition seams", async () => {
+  const bounds: Bounds = [100, 100, 49000, 49000];
+  const samePass = { ...image("same-pass", bounds, 10), singlePass: true };
+  const fine = image("finer", bounds, 7);
+  const prepared = vi.fn<typeof import("./provider").preparedShot>()
+    .mockResolvedValueOnce(samePass)
+    .mockResolvedValueOnce(fine);
+  const full = vi.fn(), publish = vi.fn();
+  const loader = new DetailLoader(
+    publish,
+    vi.fn(),
+    { prepared, overview: vi.fn(), full },
+    () => 0,
+  );
+  const wider = { ...view(bounds), sensorSpacingM: 11, desiredPixelM: 7.33 };
+  loader.prefetch(bounds, wider.sensorSpacingM);
+  await settle();
+  loader.update(wider);
+  expect(publish.mock.lastCall?.[0]).toBe(samePass);
+
+  loader.update({ ...wider, sensorSpacingM: 9, desiredPixelM: 6 });
+  await settle();
+  expect(publish.mock.lastCall?.[0]).toBe(fine);
+
+  loader.update(wider);
+  expect(publish.mock.lastCall?.[0]).toBe(samePass);
   expect(prepared).toHaveBeenCalledTimes(2);
   expect(full).not.toHaveBeenCalled();
   loader.dispose();

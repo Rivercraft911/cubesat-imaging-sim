@@ -1,5 +1,6 @@
 import type { GroundImage } from "../render";
 import { contains, type Bounds } from "./bounds";
+import { compareImagery, resolvesSinglePass, type ImagerySource } from "./lod";
 import { planShot, type ShotPlan } from "./plan";
 import {
   preparedShot,
@@ -11,6 +12,7 @@ import {
 export interface DetailView {
   bounds: Bounds;
   desiredPixelM: number;
+  sensorSpacingM?: number;
   latitudeDeg: number;
   aerial: boolean;
   satellite: GroundImage;
@@ -30,8 +32,8 @@ const close = (image: GroundImage) => {
  * the displayed aerial level; usable work survives minor pass/focal changes. */
 export class DetailLoader {
   private view: DetailView | null = null;
-  private current: GroundImage | null = null;
-  private cache = new Map<string, GroundImage>();
+  private current: (GroundImage & ImagerySource) | null = null;
+  private cache = new Map<string, GroundImage & ImagerySource>();
   private job: Job | null = null;
   private warm: Prefetch | null = null;
   private notBefore = 0;
@@ -87,15 +89,15 @@ export class DetailLoader {
     this.cache.delete(image.id);
     this.cache.set(image.id, image);
   }
-  private cached(bounds: Bounds, spacing = Infinity) {
+  private cached(bounds: Bounds, spacing = Infinity, sensorSpacingM = 0) {
     return [...this.cache.values()]
       .filter(
         (image) =>
           image.image.width > 0 &&
           contains(image.boundsMercator, bounds) &&
-          image.sourceResolutionM <= spacing,
+          (image.sourceResolutionM <= spacing || resolvesSinglePass(image, sensorSpacingM)),
       )
-      .sort((a, b) => a.sourceResolutionM - b.sourceResolutionM)[0];
+      .sort((a, b) => compareImagery(a, b, sensorSpacingM))[0];
   }
   private cancel() {
     this.job?.abort.abort();
@@ -104,13 +106,13 @@ export class DetailLoader {
 
   /** Decode only local coverage in advance. The live view still decides when
    * the image is useful, so zoomed-out views never display a small rectangle. */
-  prefetch(bounds: Bounds) {
+  prefetch(bounds: Bounds, sensorSpacingM = 0) {
     if (this.disposed || this.cached(bounds)) return;
     if (this.warm && contains(this.warm.bounds, bounds)) return;
     this.warm?.abort.abort();
     const abort = new AbortController();
     const done = this.providers
-      .prepared(bounds, abort.signal, Infinity, "low")
+      .prepared(bounds, abort.signal, Infinity, { sensorSpacingM, prefetch: true })
       .then((image) => {
         if (abort.signal.aborted || this.disposed) {
           if (image) close(image);
@@ -141,7 +143,7 @@ export class DetailLoader {
       return;
     }
     const plan = planShot(view.bounds, view.desiredPixelM, view.latitudeDeg);
-    const suitable = this.cached(view.bounds, plan.sourceResolutionM * 1.05);
+    const suitable = this.cached(view.bounds, plan.sourceResolutionM * 1.05, view.sensorSpacingM);
     if (suitable) {
       this.cancel();
       this.retry = { key: "", after: 0, attempts: 0 };
@@ -192,10 +194,10 @@ export class DetailLoader {
       close(image);
       return false;
     }
-    // A late overview cannot replace sharper coverage already displayed.
+    // Preserve adequate single-pass coverage and reject late coarse overviews.
     if (
       this.hasAerial(this.view!.bounds) &&
-      this.current!.sourceResolutionM <= image.sourceResolutionM
+      compareImagery(this.current!, image, this.view!.sensorSpacingM ?? 0) <= 0
     ) {
       close(image);
       return false;
@@ -241,6 +243,7 @@ export class DetailLoader {
           this.hasAerial(this.view!.bounds)
             ? this.current!.sourceResolutionM
             : Infinity,
+          { sensorSpacingM: this.view!.sensorSpacingM },
         );
       } catch (error) {
         abort.signal.throwIfAborted(); /* Continue with remote imagery. */
@@ -248,7 +251,8 @@ export class DetailLoader {
       if (
         prepared &&
         this.accept(job, prepared, "Prepared aerial image") &&
-        prepared.sourceResolutionM <= plan.sourceResolutionM * 1.05
+        (prepared.sourceResolutionM <= plan.sourceResolutionM * 1.05 ||
+          resolvesSinglePass(prepared, this.view!.sensorSpacingM ?? 0))
       )
         return;
       abort.signal.throwIfAborted();

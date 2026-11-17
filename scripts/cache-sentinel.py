@@ -2,7 +2,7 @@
 
 Requires Python 3.13, NumPy, Rasterio, and Pillow. The script reads the needed
 windows of the public COGs and writes bay-regional.webp and bay-regional.json.
-Pass --wide for the wider 25 mm footprint mosaic.
+Pass --wide for the wider 25 mm footprint mosaic or --telephoto for Stanford at 100 mm.
 """
 
 from argparse import ArgumentParser
@@ -31,6 +31,10 @@ DATATAKE = "20250324T190338"
 MERCATOR_BOUNDS = (-13692500, 4461476.466949167, -13533500, 4608235.561256707)
 # Contains the square Stanford 25 mm footprint near closest approach.
 WIDE_MERCATOR_BOUNDS = (-13730000, 4350000, -13478000, 4631000)
+# Matches the area of the Stanford medium NAIP acquisition. Use the native
+# Sentinel sampling so the selected 100 mm sensor scene stays on one datatake.
+TELEPHOTO_MERCATOR_BOUNDS = (-13630985.995810404, 4465084.681072243, -13568929.704108853, 4532782.45383757)
+TELEPHOTO_TILES = ("10SEG", "10SFG")
 WIDE_TILES = TILES + ("10SDF", "10SEF", "10SFF")
 NATIVE_CRS = "EPSG:32610"
 OUTPUT_CRS = "EPSG:3857"
@@ -118,16 +122,22 @@ def verify_coverage(rgb, output_transform):
     }.items():
         x, y = transform("EPSG:4326", OUTPUT_CRS, [longitude], [latitude])
         row, col = rowcol(output_transform, x[0], y[0])
+        if not (0 <= row < rgb.shape[0] and 0 <= col < rgb.shape[1]):
+            continue
         water_rgb[name] = {"lonLat": [longitude, latitude], "rgb": rgb[row, col].tolist()}
     return {"validPixels": valid_count, "sampleWaterRgbBeforeWebp": water_rgb}
 
 
 def main():
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument("--wide", action="store_true", help="build the square-sensor 25 mm coverage")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--wide", action="store_true", help="build the square-sensor 25 mm coverage")
+    mode.add_argument("--telephoto", action="store_true", help="build the native-resolution Stanford 100 mm coverage")
     args = parser.parse_args()
     if args.wide:
         name, bounds, height, tiles, input_spacing_m = "bay-regional-wide", WIDE_MERCATOR_BOUNDS, 8192, WIDE_TILES, 20
+    elif args.telephoto:
+        name, bounds, height, tiles, input_spacing_m = "stanford-sentinel", TELEPHOTO_MERCATOR_BOUNDS, 5376, TELEPHOTO_TILES, 10
     else:
         name, bounds, height, tiles, input_spacing_m = "bay-regional", MERCATOR_BOUNDS, 6144, TILES, 10
     sources = [source_tile(tile) for tile in tiles]
@@ -141,7 +151,8 @@ def main():
     rgb = warp_rgb(sources, bounds, output_transform, width, height, input_spacing_m)
     coverage = verify_coverage(rgb, output_transform)
 
-    image_path = OUTPUT_DIR / f"{name}.webp"
+    destination = OUTPUT_DIR / "shots" if args.telephoto else OUTPUT_DIR
+    image_path = destination / f"{name}.webp"
     Image.fromarray(rgb).save(image_path, format="WEBP", quality=90, method=4)
     with image_path.open("rb") as image:
         digest = file_digest(image, "sha256").hexdigest()
@@ -184,7 +195,15 @@ def main():
         },
         "sha256": digest,
     }
-    image_path.with_suffix(".json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    if args.telephoto:
+        manifest_path = destination / "manifest.json"
+        shots = json.loads(manifest_path.read_text())
+        metadata.update(singlePass=True, transparentPixels=0, targetIds=["stanford"])
+        manifest = {item["id"]: item for item in shots}
+        manifest[metadata["id"]] = metadata
+        manifest_path.write_text(json.dumps(list(manifest.values()), indent=2) + "\n", encoding="utf-8")
+    else:
+        image_path.with_suffix(".json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {image_path.name} with {coverage['validPixels']:,} valid pixels and SHA-256 {digest}")
 
 
