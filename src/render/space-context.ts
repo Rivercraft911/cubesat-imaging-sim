@@ -94,12 +94,34 @@ export async function createSpaceContext(
       : Math.max(radius, guideSphere.radius + guideSphere.center.length());
     const distance = (framingRadius / Math.sin(halfFov)) * 1.12;
     controls.target.set(0, 0, 0);
-    spaceCamera.position
-      .set(0.13, 0.38, 0.18)
-      .normalize()
-      .multiplyScalar(distance)
-      .applyQuaternion(q);
-    spaceCamera.up.set(0, 0, 1).applyQuaternion(q);
+    // Frame the actual sunward Earth limb, independently of target-tracking
+    // body attitude. A five-degree gap puts the CAD center against space;
+    // the Sun-facing azimuth favors the lit limb when the epoch permits it.
+    const position = new THREE.Vector3(...currentSample.positionEcefM);
+    const nadir = position.clone().normalize().negate();
+    const sun = new THREE.Vector3(...currentSample.sunDirectionEcef);
+    const bodyUp = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
+    const sunward = sun.clone().addScaledVector(nadir, -sun.dot(nadir));
+    if (sunward.lengthSq() < 1e-8) {
+      sunward.copy(bodyUp).addScaledVector(nadir, -bodyUp.dot(nadir));
+      if (sunward.lengthSq() < 1e-8)
+        sunward.set(1, 0, 0).addScaledVector(nadir, -nadir.x);
+    }
+    sunward.normalize();
+    const limbAngle = Math.asin(Math.min(1, 6378137 / position.length()));
+    const viewAngle = limbAngle + THREE.MathUtils.degToRad(5);
+    const observer = (side: number) =>
+      sunward
+        .clone()
+        .applyAxisAngle(nadir, side * THREE.MathUtils.degToRad(40))
+        .multiplyScalar(Math.sin(viewAngle))
+        .addScaledVector(nadir, Math.cos(viewAngle))
+        .negate();
+    const first = observer(-1),
+      second = observer(1);
+    const direction = first.dot(bodyUp) >= second.dot(bodyUp) ? first : second;
+    spaceCamera.position.copy(direction).multiplyScalar(distance);
+    spaceCamera.up.copy(bodyUp);
     spaceCamera.lookAt(controls.target);
     controls.minDistance = radius * 1.12;
     controls.maxDistance = radius * 25;

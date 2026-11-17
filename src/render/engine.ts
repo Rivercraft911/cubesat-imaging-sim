@@ -96,7 +96,8 @@ export async function createImagingEngine(
       dpr = 1,
       disposed = false,
       dirty = true;
-    let spaceVisited = false;
+    let spaceVisited = false,
+      panoramaVisited = false;
     let sceneRevision = 0,
       groundRevision = 0;
     const space = initialization.own(
@@ -437,6 +438,30 @@ export async function createImagingEngine(
         if (next === "space" && !spaceVisited) {
           space.resetView();
           spaceVisited = true;
+        }
+        if (next === "panorama" && !panoramaVisited) {
+          // Initial observer window faces the actual sunward limb. Later view
+          // changes and time scrubbing preserve the user's chosen yaw/pitch.
+          const position = new THREE.Vector3(...sample.positionEcefM);
+          const nadir = position.clone().normalize().negate();
+          const sun = new THREE.Vector3(...sample.sunDirectionEcef);
+          const tangent = sun.clone().addScaledVector(nadir, -sun.dot(nadir));
+          if (tangent.lengthSq() > 1e-8) {
+            const angle = Math.max(
+              0,
+              Math.asin(Math.min(1, 6378137 / position.length())) -
+                THREE.MathUtils.degToRad(12),
+            );
+            const forward = tangent
+              .normalize()
+              .multiplyScalar(Math.sin(angle))
+              .addScaledVector(nadir, Math.cos(angle));
+            forward.applyQuaternion(
+              new THREE.Quaternion(...sample.qEcefFromBody).invert(),
+            );
+            panoramaViewer.setLookDirection(forward);
+          }
+          panoramaVisited = true;
         }
         inspectionControls.recenter();
         dirty = true;

@@ -114,6 +114,12 @@ export function createPanoramaViewer(
       onChange();
     },
     setFov,
+    setLookDirection(bodyDirection: THREE.Vector3) {
+      const direction = bodyDirection.clone().normalize();
+      look.value.x = Math.atan2(direction.x, direction.y);
+      look.value.y = Math.asin(THREE.MathUtils.clamp(direction.z, -1, 1));
+      onChange();
+    },
     setReceived(image: HTMLCanvasElement | null) {
       if (image !== receivedCanvas) {
         received?.dispose();

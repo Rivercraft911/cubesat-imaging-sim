@@ -24,7 +24,7 @@ function boundaryRay(camera: CameraConfig, sensor: SensorProfile, azimuth: numbe
   return ray ? new THREE.Vector3(...ray) : new THREE.Vector3(0, 0, 1);
 }
 
-function dynamicObject(vertices: number, lines = false, opacity = 0.14): DynamicObject {
+function dynamicObject(vertices: number, lines = false, opacity = 0.055): DynamicObject {
   const geometry = new THREE.BufferGeometry();
   for (const name of ['position', 'color']) geometry.setAttribute(name,
     new THREE.BufferAttribute(new Float32Array(vertices * 3), 3).setUsage(THREE.DynamicDrawUsage));
@@ -33,7 +33,7 @@ function dynamicObject(vertices: number, lines = false, opacity = 0.14): Dynamic
     vertexColors: true, transparent: true, opacity, depthWrite: false, toneMapped: false,
   })) : new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
     vertexColors: true, transparent: true, opacity, side: THREE.DoubleSide,
-    depthWrite: false, toneMapped: false,
+    depthWrite: false, toneMapped: false, forceSinglePass: true,
   }));
   object.layers.set(GUIDE_LAYER);
   return object;
@@ -55,7 +55,7 @@ function makeMount(group: THREE.Group): MountGuide {
   const mount = new THREE.Group();
   mount.layers.set(GUIDE_LAYER);
   const surface = dynamicObject(AZIMUTHS * RINGS * 6);
-  const lines = dynamicObject((AZIMUTHS + 8 * RINGS + 4) * 2, true, 0.6);
+  const lines = dynamicObject((AZIMUTHS + 8 * RINGS + 4) * 2, true, 0.45);
   const sides = dynamicObject(AZIMUTHS * 3, false, 0.055);
   mount.add(surface, sides, lines);
   group.add(mount);
