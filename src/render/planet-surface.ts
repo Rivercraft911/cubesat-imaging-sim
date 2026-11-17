@@ -1,7 +1,6 @@
 import * as THREE from "three/webgpu";
 import {
   Fn,
-  If,
   mix,
   positionGeometry,
   texture,
@@ -60,34 +59,32 @@ export function makePlanetSurface(
         fade: sensor.u.groundFade,
       },
     ];
-    const applyLayer = (layer: (typeof layers)[number]) => {
+    // Sample all layers in uniform control flow; coverage only weights them.
+    const sampled = layers.map((layer) => {
       const regional = mercator
         .sub(layer.bounds.xy)
         .div(layer.bounds.zw.sub(layer.bounds.xy));
-      If(
-        layer.active
-          .greaterThan(0.5)
-          .and(regional.x.greaterThanEqual(0))
-          .and(regional.x.lessThanEqual(1))
-          .and(regional.y.greaterThanEqual(0))
-          .and(regional.y.lessThanEqual(1)),
-        () => {
-          const image = layer.node.sample(regional);
-          const distance = regional.min(vec2(1).sub(regional));
-          const alpha = image.a
-            .mul(distance.x.smoothstep(0, layer.fade.x))
-            .mul(distance.y.smoothstep(0, layer.fade.y));
-          base.assign(mix(base, image.rgb, alpha));
-        },
-      );
-    };
-    If(sensor.u.detailFiner.greaterThan(0.5), () => {
-      applyLayer(layers[0]);
-      applyLayer(layers[1]);
-    }).Else(() => {
-      applyLayer(layers[1]);
-      applyLayer(layers[0]);
+      const image = layer.node.sample(regional).toVar();
+      const distance = regional.min(vec2(1).sub(regional));
+      const alpha = image.a
+        .mul(layer.active)
+        .mul(distance.x.smoothstep(0, layer.fade.x))
+        .mul(distance.y.smoothstep(0, layer.fade.y));
+      return { color: image.rgb, alpha };
     });
+    const baseFirst = mix(
+      mix(base, sampled[0].color, sampled[0].alpha),
+      sampled[1].color,
+      sampled[1].alpha,
+    );
+    const detailFirst = mix(
+      mix(base, sampled[1].color, sampled[1].alpha),
+      sampled[0].color,
+      sampled[0].alpha,
+    );
+    base.assign(
+      sensor.u.detailFiner.greaterThan(0.5).select(baseFirst, detailFirst),
+    );
     return base;
   })();
 }

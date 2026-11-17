@@ -83,95 +83,91 @@ export function makeSensorMaterial(
       const hit = vec4(
         hitFn(u.origin, ray, u.earthC) as ReturnType<typeof vec4>,
       ).toVar();
-      const result = vec3(0).toVar();
-      If(hit.w.greaterThan(0), () => {
-        const coords = vec4(uvFn(hit.xyz) as ReturnType<typeof vec4>).toVar();
-        const base = texture(day, coords.xy).rgb.toVar();
-        // Geographic crop bounds recorded in west-coast-regional.json.
-        const geographic = coords.xy.mul(vec2(360, 180)).sub(vec2(180, 90));
-        const southwest = vec2(-130.66666666666666, 29.1),
-          northeast = vec2(-113.6, 46.166666666666664);
-        const westUV = geographic.sub(southwest).div(northeast.sub(southwest));
-        const edge = geographic.sub(southwest).min(northeast.sub(geographic));
-        const blend = edge.x.min(edge.y).smoothstep(0, 0.25);
-        base.assign(mix(base, texture(western, westUV).rgb, blend));
-        const delta = u.localOrigin.add(ray.mul(hit.w));
-        const mercator = vec2(
-          localUV(delta, u.groundReference, u.referenceLat) as ReturnType<
-            typeof vec2
-          >,
-        );
-        const layers = [
-          {
-            node: baseNode,
-            bounds: u.baseBounds,
-            active: u.hasBase,
-            fade: u.baseFade,
-          },
-          {
-            node: groundNode,
-            bounds: u.bounds,
-            active: u.hasGround,
-            fade: u.groundFade,
-          },
-        ];
-        const applyLayer = (layer: (typeof layers)[number]) => {
-          const regional = mercator
-            .sub(layer.bounds.xy)
-            .div(layer.bounds.zw.sub(layer.bounds.xy))
-            .toVar();
-          If(
-            layer.active
-              .greaterThan(0.5)
-              .and(regional.x.greaterThanEqual(0))
-              .and(regional.x.lessThanEqual(1))
-              .and(regional.y.greaterThanEqual(0))
-              .and(regional.y.lessThanEqual(1)),
-            () => {
-              const tile = layer.node.sample(regional).toVar();
-              const distance = regional.min(vec2(1).sub(regional));
-              const edge = vec2(
-                distance.x.smoothstep(0, layer.fade.x),
-                distance.y.smoothstep(0, layer.fade.y),
-              );
-              base.assign(mix(base, tile.rgb, tile.a.mul(edge.x).mul(edge.y)));
-            },
-          );
-        };
-        If(u.detailFiner.greaterThan(0.5), () => {
-          applyLayer(layers[0]);
-          applyLayer(layers[1]);
-        }).Else(() => {
-          applyLayer(layers[1]);
-          applyLayer(layers[0]);
-        });
-        const normal = hit.xyz
+      // Image samples execute for every fragment. A branch on Earth/raster
+      // coverage would make implicit derivatives (and mip selection) undefined.
+      const surface = hit.w.greaterThan(0).select(hit.xyz, vec3(1, 0, 0));
+      const coords = vec4(uvFn(surface) as ReturnType<typeof vec4>).toVar();
+      const base = texture(day, coords.xy).rgb.toVar();
+      const geographic = coords.xy.mul(vec2(360, 180)).sub(vec2(180, 90));
+      const southwest = vec2(-130.66666666666666, 29.1),
+        northeast = vec2(-113.6, 46.166666666666664);
+      const westUV = geographic.sub(southwest).div(northeast.sub(southwest));
+      const edge = geographic.sub(southwest).min(northeast.sub(geographic));
+      const blend = edge.x.min(edge.y).smoothstep(0, 0.25);
+      base.assign(mix(base, texture(western, westUV).rgb, blend));
+      const delta = u.localOrigin.add(ray.mul(hit.w));
+      const mercator = vec2(
+        localUV(delta, u.groundReference, u.referenceLat) as ReturnType<
+          typeof vec2
+        >,
+      );
+      const layers = [
+        {
+          node: baseNode,
+          bounds: u.baseBounds,
+          active: u.hasBase,
+          fade: u.baseFade,
+        },
+        {
+          node: groundNode,
+          bounds: u.bounds,
+          active: u.hasGround,
+          fade: u.groundFade,
+        },
+      ].map((layer) => {
+        const regional = mercator
+          .sub(layer.bounds.xy)
+          .div(layer.bounds.zw.sub(layer.bounds.xy));
+        const tile = layer.node.sample(regional).toVar();
+        const distance = regional.min(vec2(1).sub(regional));
+        // Smoothstep is zero outside either bound, including inactive layers.
+        const alpha = tile.a
+          .mul(layer.active)
+          .mul(distance.x.smoothstep(0, layer.fade.x))
+          .mul(distance.y.smoothstep(0, layer.fade.y));
+        return { color: tile.rgb, alpha };
+      });
+      const baseFirst = mix(
+        mix(base, layers[0].color, layers[0].alpha),
+        layers[1].color,
+        layers[1].alpha,
+      );
+      const detailFirst = mix(
+        mix(base, layers[1].color, layers[1].alpha),
+        layers[0].color,
+        layers[0].alpha,
+      );
+      base.assign(
+        u.detailFiner.greaterThan(0.5).select(baseFirst, detailFirst),
+      );
+      // Main imagery retains its photographed, normalized brightness.
+      const result = hit.w.greaterThan(0).select(base, vec3(0)).toVar();
+      if (contextual) {
+        const normal = surface
           .mul(vec3(1, 1, 1 / 0.9966471893352525 ** 2))
           .normalize();
         const sunCos = normal.dot(u.sun).toVar();
-        // Orthophoto source is already photographed and lit: preserve its normalized brightness.
-        result.assign(base);
-        if (contextual) {
+        const cityLights = mix(
+          texture(night, coords.xy).rgb,
+          texture(westernNight, westUV).r.mul(vec3(1, 0.88, 0.74)),
+          blend,
+        ).toVar();
+        const cloud = cloudLayer.intersect(u.origin, ray).toVar();
+        const cloudPoint = cloud.w
+          .greaterThan(0)
+          .select(cloud.xyz, vec3(6386137, 0, 0));
+        const cloudOpacity = cloudLayer.opacity(cloudPoint).mul(0.82).toVar();
+        If(hit.w.greaterThan(0), () => {
           result.assign(base.mul(sunCos.max(0).mul(0.88).add(0.025)));
-          // Source-resolved VIIRS city lights; warm display tint is illustrative.
-          const cityLights = mix(
-            texture(night, coords.xy).rgb,
-            texture(westernNight, westUV).r.mul(vec3(1, 0.88, 0.74)),
-            blend,
-          );
           result.addAssign(
             cityLights.mul(float(0.1).sub(sunCos).smoothstep(0, 0.2)).mul(0.6),
           );
           result.assign(
             aerial.toPoint(result, u.origin, hit.xyz.mul(6378137), u.sun),
           );
-        }
-      });
-      if (contextual) {
-        If(hit.w.lessThanEqual(0), () => {
+        }).Else(() => {
           result.assign(aerial.sky(u.origin, ray, u.sun));
         });
-        const cloud = cloudLayer.intersect(u.origin, ray).toVar();
         If(
           cloud.w
             .greaterThan(0)
@@ -184,9 +180,7 @@ export function makeSensorMaterial(
               cloud.xyz,
               u.sun,
             );
-            result.assign(
-              mix(result, transported, cloudLayer.opacity(cloud.xyz).mul(0.82)),
-            );
+            result.assign(mix(result, transported, cloudOpacity));
           },
         );
       }

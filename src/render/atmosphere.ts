@@ -4,7 +4,7 @@ import {
   AtmosphereParameters,
   skyBackground,
 } from "@takram/three-atmosphere/webgpu";
-import { context as nodeContext } from "three/tsl";
+import { context as nodeContext, float } from "three/tsl";
 import { Matrix4, Vector3 } from "three";
 import type { Camera, WebGPURenderer, Node, Scene } from "three/webgpu";
 
@@ -19,6 +19,19 @@ export class AtmosphereAdapter {
   readonly parameters = new AtmosphereParameters();
   readonly lut = new ManagedLUT(this.parameters);
   private contexts = new Map<string, AtmosphereContext>();
+  constructor() {
+    // Physical lookup tables have one level, unlike photographic source maps.
+    // Explicit LOD avoids implicit derivatives inside Takram's ray branches.
+    for (const node of [
+      this.lut.getTextureNode("transmittance"),
+      this.lut.getTextureNode("irradiance"),
+      this.lut.getTextureNode("multipleScattering"),
+      this.lut.getTextureNode("scattering"),
+      this.lut.getTextureNode("singleMieScattering"),
+      this.lut.getTextureNode("higherOrderScattering"),
+    ])
+      node.levelNode = float(0);
+  }
   async initialize(renderer: WebGPURenderer, scene: Scene, camera: Camera) {
     // LUT storage is allocated lazily by node setup during compilation.
     await renderer.compileAsync(scene, camera);

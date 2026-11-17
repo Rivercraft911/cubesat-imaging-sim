@@ -184,7 +184,17 @@ export async function createSpaceContext(
     new THREE.Vector3(...sample.sunDirectionEcef),
   );
   const sensorAerial = createAerialTransfer(sensorContext);
-  await atmosphere.initialize(renderer, planetScene, planetCamera);
+  try {
+    await atmosphere.initialize(renderer, planetScene, planetCamera);
+  } catch (error) {
+    controls.dispose();
+    disposeCameraGuides(guides);
+    disposeObject(ship);
+    disposeObject(planetScene);
+    atmosphere.dispose();
+    environment.dispose();
+    throw error;
+  }
   const picking = createCameraPicking(
     canvas,
     spaceCamera,

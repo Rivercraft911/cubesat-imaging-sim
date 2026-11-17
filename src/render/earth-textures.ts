@@ -11,15 +11,25 @@ export async function loadEarthTextures() {
     t.minFilter = THREE.LinearMipmapLinearFilter;
     return t;
   };
-  const [day, night, cloud, western, westernNight, regionalCloud] =
-    await Promise.all([
-      load("/assets/earth-day.jpg"),
-      load("/assets/earth-night.jpg"),
-      load("/assets/earth-clouds.webp"),
-      load("/assets/west-coast-regional.webp"),
-      load("/assets/earth-night-western-us.webp"),
-      load("/assets/earth-clouds-western-us.png"),
-    ]);
+  // Wait for every independent load so a failed sibling cannot leak textures
+  // that finish later than the first rejected image request.
+  const loaded = await Promise.allSettled([
+    load("/assets/earth-day.jpg"),
+    load("/assets/earth-night.jpg"),
+    load("/assets/earth-clouds.webp"),
+    load("/assets/west-coast-regional.webp"),
+    load("/assets/earth-night-western-us.webp"),
+    load("/assets/earth-clouds-western-us.png"),
+  ]);
+  const failure = loaded.find((result) => result.status === "rejected");
+  if (failure?.status === "rejected") {
+    for (const result of loaded)
+      if (result.status === "fulfilled") result.value.dispose();
+    throw failure.reason;
+  }
+  const [day, night, cloud, western, westernNight, regionalCloud] = loaded.map(
+    (result) => (result as PromiseFulfilledResult<THREE.Texture>).value,
+  );
   cloud.colorSpace = THREE.NoColorSpace;
   const fallback = new THREE.DataTexture(
     new Uint8Array([40, 48, 46, 255]),
