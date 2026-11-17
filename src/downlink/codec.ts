@@ -1,5 +1,5 @@
 import { codecCandidates } from './codec-levels'
-import { buildStreams, type DownlinkConfig, type StreamSpec } from './types'
+import { buildStreams, DOWNLINK_RESOLUTIONS, type DownlinkConfig, type StreamSpec } from './types'
 
 export interface SupportedStream extends StreamSpec {
   codecString: string
@@ -159,8 +159,8 @@ export async function probeDownlink(config: DownlinkConfig, signal?: AbortSignal
   if (config.fps !== 15 && config.fps !== 30) {
     return { supported: false, reason: 'Downlink frame rate must be 15 or 30 fps.' }
   }
-  if (config.resolution !== 720 && config.resolution !== 1080 && config.resolution !== 2160) {
-    return { supported: false, reason: 'Select a 720p, 1080p or 2160p downlink preset.' }
+  if (!DOWNLINK_RESOLUTIONS.includes(config.resolution)) {
+    return { supported: false, reason: 'Select a supported downlink height between 144p and 2160p.' }
   }
   const mainAspect = config.mainAspectRatio
   if (config.program !== '360' && mainAspect !== undefined && (!Number.isFinite(mainAspect) || mainAspect <= 0)) {

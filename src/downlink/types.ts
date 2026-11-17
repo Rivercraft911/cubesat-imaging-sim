@@ -2,7 +2,8 @@ export type VideoCodec = 'h264' | 'h265' | 'av1' | 'vp9'
 export type VideoProgram = 'main' | '360' | 'both'
 export type StitchArchitecture = 'onboard' | 'ground'
 export type StreamId = 'main' | 'panorama' | 'wideA' | 'wideB'
-export type DownlinkResolution = 720 | 1080 | 2160
+export const DOWNLINK_RESOLUTIONS = [144, 240, 360, 480, 720, 1080, 1440, 2160] as const
+export type DownlinkResolution = typeof DOWNLINK_RESOLUTIONS[number]
 
 export interface LinkOutage {
   /** Milliseconds from the start of the session. */
