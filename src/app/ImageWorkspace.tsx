@@ -156,7 +156,7 @@ export function ImageWorkspace({
               The source cannot resolve sensor-scale detail.
             </p>}
             <p title={progress.message}>
-              {view === 'space' ? 'Earth: Solar System Scope / INOVE. Clouds: NASA Goddard.'
+              {view === 'space' ? 'Earth: NASA MODIS / Solar System Scope. City lights: NASA Black Marble. Clouds: NASA Goddard.'
                 : progress.state === 'loading' ? 'Retrieving aerial detail…'
                   : (image?.attribution ?? 'Solar System Scope / NASA Goddard')}
               {view !== 'space' && image && ` · ${fmt(image.sourceResolutionM, 1)} m raster`}
@@ -182,7 +182,7 @@ export function ImageWorkspace({
       {view === 'panorama' && interactivePanorama && <span className="image-hint">Drag to look around · Scroll to zoom</span>}
       {!received && view === 'space' && <span className="image-hint">Click a camera to edit · Drag to orbit · Scroll to approach</span>}
       {!received && view === 'image' && progress.state !== 'loading' && <span className="image-hint">Scroll to zoom · Drag to pan · Double-click for 1:1</span>}
-      {progress.state === 'loading' && view === 'image' && <span className="image-hint" role="status">Loading ground detail…</span>}
+      {progress.state === 'loading' && view === 'image' && <span className="image-hint" role="status">{progress.message}</span>}
     </section>
   );
 }
