@@ -29,6 +29,7 @@ export function useGroundDetail(scenario: Scenario, timeS: number, fine: GroundI
 
   useEffect(() => {
     const abort = new AbortController();
+    const satellite = fine?.image.width ? fine : base?.image.width ? base : null;
     let busy = false, previousRequest = '';
     // Fast Refresh preserves React state but reruns resource cleanup. A closed
     // bitmap cannot be reused by a replacement GPU instance.
@@ -43,12 +44,12 @@ export function useGroundDetail(scenario: Scenario, timeS: number, fine: GroundI
         : { state: 'ready', message: displayed.attribution, resolutionM: displayed.sourceResolutionM });
     };
     const tick = async () => {
-      if (!fine?.image.width) return;
+      if (!satellite) return;
       const { scenario: live, timeS: frameTime } = latest.current;
       const metrics = computeMetrics(live, 'main', frameTime);
-      const aerial = current.current !== fine && current.current !== null;
-      if (!needsAerial(metrics.gsdM, fine.sourceResolutionM, aerial)) {
-        previousRequest = ''; publish(fine); return;
+      const aerial = current.current !== satellite && current.current !== null;
+      if (!needsAerial(metrics.gsdM, satellite.sourceResolutionM, aerial)) {
+        previousRequest = ''; publish(satellite); return;
       }
       if (busy) return;
       const regionTime = Math.round(frameTime / 30) * 30;
@@ -68,7 +69,8 @@ export function useGroundDetail(scenario: Scenario, timeS: number, fine: GroundI
           image = await shotImage(bounds, desired, live.target.latitudeDeg, abort.signal);
         }
         const now = latest.current;
-        const stillUseful = needsAerial(computeMetrics(now.scenario, 'main', now.timeS).gsdM, fine.sourceResolutionM, true);
+        const stillUseful = needsAerial(computeMetrics(now.scenario, 'main', now.timeS).gsdM, satellite.sourceResolutionM, true)
+          && contains(image.boundsMercator, shotBounds(now.scenario, now.timeS));
         if (abort.signal.aborted || !stillUseful) { close(image); return; }
         owned.current.add(image); publish(image);
       } catch (reason) {

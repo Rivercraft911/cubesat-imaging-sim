@@ -24,7 +24,7 @@ export default function App() {
   const [view, setView] = useState<RenderView>('image');
   const [cameraId, setCameraId] = useState<CameraId>('main');
   const [inspection, setInspection] = useState<'fit' | 'native'>('fit');
-  const [panoramaProjection, setPanoramaProjection] = useState<'perspective' | 'equirectangular'>('equirectangular');
+  const [panoramaProjection, setPanoramaProjection] = useState<'perspective' | 'equirectangular'>('perspective');
   const [panoramaFov, setPanoramaFov] = useState(90);
   const [quality, setQuality] = useState<'high' | 'low'>('high');
   const [panel, setPanel] = useState<Panel | null>(null);
