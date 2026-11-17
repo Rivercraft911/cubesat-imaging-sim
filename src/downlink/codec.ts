@@ -1,4 +1,5 @@
-import { buildStreams, type DownlinkConfig, type StreamSpec, type VideoCodec } from './types'
+import { codecCandidates } from './codec-levels'
+import { buildStreams, type DownlinkConfig, type StreamSpec } from './types'
 
 export interface SupportedStream extends StreamSpec {
   codecString: string
@@ -21,36 +22,6 @@ export function downlinkFrameSizeError({ id, width, height }: Pick<StreamSpec, '
   if (width > MAX_ENCODE_DIMENSION || height > MAX_ENCODE_DIMENSION || width * height > MAX_ENCODE_PIXELS) {
     return `${id} ${width} × ${height} exceeds the downlink limit of 8,192 px per side or 16,777,216 px per frame. Select a lower encode height or a different sensor aspect ratio.`
   }
-}
-
-// ITU-T H.264 (08/2024), Table A-1. These levels cover the supported presets and frame rates.
-function avcLevel({ width, height }: StreamSpec, fps: number): string {
-  const blocks = Math.ceil(width / 16) * Math.ceil(height / 16)
-  const rate = blocks * fps
-  if (blocks <= 8_192 && rate <= 245_760) return '28'
-  if (blocks <= 22_080 && rate <= 589_824) return '32'
-  return rate <= 983_040 ? '33' : '34'
-}
-
-// H.265 Table A.1 and WebM VP9 levels share these frame-size breakpoints.
-function pixelLevel({ width, height }: StreamSpec, level4Size = 2_228_224): number {
-  const pixels = width * height
-  if (pixels <= level4Size) return 4
-  return pixels <= 8_912_896 ? 5 : 6
-}
-
-// Profile and tier are explicit. The presets satisfy the selected levels' frame-rate limits.
-const PROFILES: Record<VideoCodec, readonly ((stream: StreamSpec, fps: number) => string)[]> = {
-  h264: [
-    (stream, fps) => `avc1.6400${avcLevel(stream, fps)}`,
-    (stream, fps) => `avc1.42e0${avcLevel(stream, fps)}`,
-  ],
-  h265: [
-    stream => `hvc1.1.6.L${pixelLevel(stream) * 30}.B0`,
-    stream => `hev1.1.6.L${pixelLevel(stream) * 30}.B0`,
-  ],
-  av1: [stream => `av01.0.${String((pixelLevel(stream, 2_359_296) - 2) * 4).padStart(2, '0')}M.08`],
-  vp9: [stream => `vp09.00.${pixelLevel(stream) * 10}.08`],
 }
 
 function describe(spec: SupportedStream): string {
@@ -203,10 +174,22 @@ export async function probeDownlink(config: DownlinkConfig, signal?: AbortSignal
   if (!specs.every(stream => Number.isSafeInteger(stream.bitrateBps) && stream.bitrateBps > 0)) {
     return { supported: false, reason: 'Encoder targets must be positive integer bit rates for every selected stream.' }
   }
+  const candidates = specs.map(stream => codecCandidates(config.codec, stream, config.fps))
+  const unmatched = candidates.findIndex(options => !options.some(Boolean))
+  if (unmatched >= 0) {
+    const { id, width, height, bitrateBps } = specs[unmatched]
+    return { supported: false, reason: `No modeled ${config.codec.toUpperCase()} level fits ${id} ${width} × ${height} at ${config.fps} fps and ${bitrateBps / 1_000_000} Mb/s. Reduce the size, frame rate, or bitrate.` }
+  }
+  const tried = new Set<string>()
   const reasons: string[] = []
-  for (const profile of PROFILES[config.codec]) {
+  for (let variant = 0; variant < candidates[0].length; variant++) {
     signal?.throwIfAborted()
-    const streams = specs.map(stream => configFor(stream, profile(stream, config.fps), config.fps))
+    const codecs = candidates.map(options => options[variant])
+    if (codecs.some(codec => codec === undefined)) continue
+    const key = codecs.join(',')
+    if (tried.has(key)) continue
+    tried.add(key)
+    const streams = specs.map((stream, i) => configFor(stream, codecs[i]!, config.fps))
     const probes: Probe[] = streams.map(() => ({ chunks: [], decoded: false }))
     const attempt = new AbortController()
     try {
