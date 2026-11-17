@@ -34,9 +34,9 @@ export function useImagery(engine: React.RefObject<ImagingEngine | null>, versio
       retained.current = [];
     };
   }, []);
-  useEffect(() => { engine.current?.setBaseGroundImage(base); }, [version, base, engine]);
+  useEffect(() => { engine.current?.setBaseGroundImage(base?.image.width ? base : null); }, [version, base, engine]);
   const { detail, progress } = useGroundDetail(scenario, timeS, fine, base);
-  useEffect(() => { engine.current?.setGroundImage(detail); }, [version, detail, engine]);
+  useEffect(() => { engine.current?.setGroundImage(detail?.image.width ? detail : null); }, [version, detail, engine]);
   return {
     image: detail ?? base, baseImage: base,
     progress: error && !base ? { state: 'error' as const, message: error } : progress,

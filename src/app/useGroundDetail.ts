@@ -30,6 +30,9 @@ export function useGroundDetail(scenario: Scenario, timeS: number, fine: GroundI
   useEffect(() => {
     const abort = new AbortController();
     let busy = false, previousRequest = '';
+    // Fast Refresh preserves React state but reruns resource cleanup. A closed
+    // bitmap cannot be reused by a replacement GPU instance.
+    if (current.current && !current.current.image.width) { current.current = null; setDetail(null); }
     const publish = (value: GroundImage | null) => {
       if (current.current !== value) {
         if (current.current && owned.current.has(current.current)) retired.current.push(current.current);
@@ -40,7 +43,7 @@ export function useGroundDetail(scenario: Scenario, timeS: number, fine: GroundI
         : { state: 'ready', message: displayed.attribution, resolutionM: displayed.sourceResolutionM });
     };
     const tick = async () => {
-      if (!fine) return;
+      if (!fine?.image.width) return;
       const { scenario: live, timeS: frameTime } = latest.current;
       const metrics = computeMetrics(live, 'main', frameTime);
       const aerial = current.current !== fine && current.current !== null;
