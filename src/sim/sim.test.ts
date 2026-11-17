@@ -133,8 +133,10 @@ describe('camera coordinates and optics', () => {
   it('reports center GSD, aperture, diffraction, and tracking-dependent exposure motion', () => {
     const scenario = createDefaultScenario();
     const main = computeMetrics(scenario, 'main');
-    expect(main.targetPixel?.[0]).toBeCloseTo(1920, 6);
-    expect(main.targetPixel?.[1]).toBeCloseTo(1080, 6);
+    // The body tracks the target. The front camera keeps its fixed orientation
+    // and the mounting translation shifts the target by lens parallax.
+    expect(main.targetPixel?.[0]).toBeCloseTo(1920 + 0.023 * 25_000 / 550_000, 6);
+    expect(main.targetPixel?.[1]).toBeCloseTo(1080 + 0.012 * 25_000 / 550_000, 6);
     expect(main.gsdXM).toBeCloseTo(22, 2);
     expect(main.gsdYM).toBeCloseTo(22, 2);
     expect(main.footprintWidthM).toBeGreaterThan(84_000);

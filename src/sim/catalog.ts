@@ -65,7 +65,8 @@ function wideCamera(id: 'wideA' | 'wideB', faceY: number): CameraConfig {
       focalLengthMm: imageCircleMm / 2 / (95 * Math.PI / 180), fNumber: 2.8,
       projection: 'equidistant', maxFovDeg: 190, imageCircleMm, extraBlurPx: 0,
     },
-    positionBodyM: [0.035, faceY, 0.035], yawDeg: 0, pitchDeg: 0, rollDeg: 0,
+    positionBodyM: [id === 'wideA' ? -0.034 : 0.034, faceY, 0.038],
+    yawDeg: 0, pitchDeg: 0, rollDeg: 0,
     exposureMs: 1, jitterArcsec: 0, readoutMs: 0, housingDiameterMm: 14, housingLengthMm: 10,
   };
 }
@@ -86,7 +87,7 @@ export function createDefaultScenario(): Scenario {
           focalLengthMm: 50, fNumber: 4, projection: 'rectilinear',
           maxFovDeg: 180, imageCircleMm: 9, extraBlurPx: 0,
         },
-        positionBodyM: [0, 0.055, 0], yawDeg: 0, pitchDeg: 0, rollDeg: 0,
+        positionBodyM: [-0.023, 0.055, 0.012], yawDeg: 0, pitchDeg: 0, rollDeg: 0,
         exposureMs: 1, jitterArcsec: 0, readoutMs: 0, housingDiameterMm: 24, housingLengthMm: 35,
       },
       wideCamera('wideA', 0.055),
