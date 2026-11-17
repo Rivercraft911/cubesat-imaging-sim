@@ -24,6 +24,12 @@ export async function loadEarthTextures() {
     load("west-coast-regional.webp"),
     load("earth-night-western-us.webp"),
     load("earth-clouds-western-us-v2.png"),
+    load("stanford-night-iss.webp").catch(() => {
+      // A failed local photograph leaves the independent VIIRS layer visible.
+      const clear = new THREE.DataTexture(new Uint8Array(4), 1, 1);
+      clear.needsUpdate = true;
+      return clear;
+    }),
   ]);
   const failure = loaded.find((result) => result.status === "rejected");
   if (failure?.status === "rejected") {
@@ -31,7 +37,7 @@ export async function loadEarthTextures() {
       if (result.status === "fulfilled") result.value.dispose();
     throw failure.reason;
   }
-  const [day, night, cloud, western, westernNight, regionalCloud] = loaded.map(
+  const [day, night, cloud, western, westernNight, regionalCloud, stanfordNight] = loaded.map(
     (result) => (result as PromiseFulfilledResult<THREE.Texture>).value,
   );
   cloud.colorSpace = THREE.NoColorSpace;
@@ -49,6 +55,7 @@ export async function loadEarthTextures() {
     western,
     westernNight,
     regionalCloud,
+    stanfordNight,
     fallback,
     dispose() {
       for (const texture of [
@@ -58,6 +65,7 @@ export async function loadEarthTextures() {
         western,
         westernNight,
         regionalCloud,
+        stanfordNight,
         fallback,
       ])
         texture.dispose();

@@ -1,66 +1,27 @@
 {
-  "schema_version": "1.0",
-  "revision": "nasa-black-marble-2016-stanford-native-v1",
   "file": "earth-night-western-us.webp",
-  "runtime_mime": "image/webp",
-  "publisher": "NASA Earth Observatory",
-  "credit": "NASA Earth Observatory, Black Marble 2016 / Suomi NPP VIIRS",
-  "publisher_page": "https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/",
-  "source_url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144897/BlackMarble_2016_A1_geo_gray.tif",
-  "license": "NASA imagery use guidelines; educational/informational use with acknowledgment, no endorsement.",
-  "license_url": "https://www.nasa.gov/nasa-brand-center/images-and-media/",
-  "acquisition_epoch": "2016 annual composite, not a single-date observation",
-  "retrieved_utc": "2026-10-26T21:01:09Z",
-  "source_dimensions": [
-    21600,
-    21600
+  "source_url": "https://zenodo.org/api/records/17294744/files/nightlights.average_viirs.v21_m_500m_s_20160101_20161231_go_epsg4326_v20250904.tif/content",
+  "source_sha256": "319ef2d91a2ff4733c61a555a81f05b483c9b47463b1f91f00bbc5385556ca45",
+  "runtime_sha256": "a4cc073348394fb0a4fd03c9ad015b6c3623b84f99a97c5d96133cb3100c1923",
+  "source_record": "https://doi.org/10.5281/zenodo.17294744",
+  "credit": "T. Hengl (OpenGeoHub), derived from Earth Observation Group Annual VNL V2.1",
+  "source_license": "CC BY 4.0",
+  "acquisition_epoch": "2016 annual composite",
+  "source_paper": "https://doi.org/10.3390/rs13050922",
+  "crs": "EPSG:4326",
+  "bounds_deg_west_south_east_north": [
+    -130.66666666666663,
+    29.099166666666626,
+    -113.59999999999995,
+    46.1658333333333
   ],
-  "runtime_dimensions": [
+  "window_col_row_width_height": [
+    11840,
+    9889,
     4096,
     4096
   ],
-  "source_sha256": "6a1681c761254063240b057bdcf798ff4f502a8a94f89d83b9418cc41871c55a",
-  "runtime_sha256": "db3f2b9de3954873188777ef092bb3de232d86244691846b764ff56ba8735296",
-  "source_bytes": 21888381,
-  "runtime_bytes": 399288,
-  "source_tile_bounds_deg": {
-    "west": -180,
-    "east": -90,
-    "south": 0,
-    "north": 90
-  },
-  "source_georeferencing": {
-    "crs": "EPSG:4326",
-    "raster_type": "PixelIsArea",
-    "model_pixel_scale": [
-      0.004166666666666667,
-      0.004166666666666667,
-      0
-    ],
-    "model_tiepoint": [
-      0,
-      0,
-      0,
-      -180,
-      90,
-      0
-    ]
-  },
-  "crop_pixel_box": [
-    11840,
-    10520,
-    15936,
-    14616
-  ],
-  "bounds_deg": {
-    "west": -130.66666666666666,
-    "east": -113.6,
-    "north": 46.166666666666664,
-    "south": 29.1
-  },
-  "angular_pixel_spacing_deg": 0.004166666666666667,
-  "published_nominal_resolution_m": 500,
-  "gpu_format": "R8",
-  "transform": "Exact native pixel crop of lossless LZW GeoTIFF. Checked all three source RGB channels equal; retain red as grayscale. Lossless WebP, method6, exact=true, Pillow12.3.0/libwebp1.6.0; decoded derivative equals source crop byte for byte. No resizing, sharpening, synthesis or adjusted pixel values. Runtime uses the existing global grayscale power0.65 display curve, sRGB decode, warm tint and0.35 emission gain, blended in linear light.",
-  "runtime_display_note": "This simulator uses the unchanged source grayscale as illustrative city-light brightness. The prior renderer display transform described above is not applied."
+  "pixel_spacing_arcseconds": 15,
+  "source_units": "Publisher integer equals ten times VNL DNB radiance in nW cm^-2 sr^-1.",
+  "display": "Native grid crop. For radiance R >= 0 use linear intensity R/(R+35), then sRGB encoding and nearest 8-bit code. Lossless WebP. Display mapping, tint and emission gain are illustrative. No calibrated camera response."
 }

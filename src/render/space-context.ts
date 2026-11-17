@@ -43,6 +43,7 @@ export async function createSpaceContext(
   night: THREE.Texture,
   western: THREE.Texture,
   westernNight: THREE.Texture,
+  stanfordNight: THREE.Texture,
   cloudLayer: CloudLayer,
 ) {
   const geometryKey = (s: Scenario) => JSON.stringify([s.body,
@@ -187,7 +188,7 @@ export async function createSpaceContext(
     atmosphereContext.cameraPositionECEF as unknown as THREE.Node<"vec3">;
   const surfaceCoords = earthSurfaceCoordinates(positionWorld.add(worldOrigin));
   planetMaterial.colorNode = earthDayColor(day, western, surfaceCoords);
-  planetMaterial.emissiveNode = earthNightColor(night, westernNight, surfaceCoords)
+  planetMaterial.emissiveNode = earthNightColor(night, westernNight, stanfordNight, surfaceCoords)
     .mul(float(0.1).sub(normalWorld.dot(sunDirection)).smoothstep(0, 0.2))
     .mul(0.035);
   planetMaterial.outputNode = vec4(

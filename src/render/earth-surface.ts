@@ -1,7 +1,8 @@
 import type { Node, Texture } from 'three/webgpu';
-import { atan, mix, texture, vec2, vec3 } from 'three/tsl';
+import iss from '../data/stanford-night.json';
+import { atan, fwidth, mix, texture, vec2, vec3 } from 'three/tsl';
 
-/** Shared ECEF registration for the regional MODIS and native Black Marble
+/** Shared ECEF registration for the regional MODIS and native VIIRS
  * crops. Samples stay outside coverage branches so mip derivatives are valid. */
 export function earthSurfaceCoordinates(point: Node<'vec3'>) {
   const longitude = atan(point.y, point.x);
@@ -24,16 +25,23 @@ export function earthDayColor(global: Texture, regional: Texture, coords: Return
   return mix(texture(global, coords.globalUV).rgb, texture(regional, day.regionalUV).rgb, day.blend);
 }
 
-export function earthNightColor(global: Texture, regional: Texture, coords: ReturnType<typeof earthSurfaceCoordinates>) {
-  // Native 500 m Black Marble grayscale and the publisher's colored global map
-  // have different display styling, epochs and resolution. Compare their
-  // linear-light luminance and apply one illustrative tint after blending, so
-  // crossing the crop cannot change the apparent light color. This is not a
-  // radiance calibration. A 2° transition softens the source-detail boundary;
-  // it does not alter or synthesize either source's spatial detail.
-  const night = regionalCoordinates(coords.geographic, [-130.66666666666666, 29.1, -113.6, 46.166666666666664], 2);
+export function earthNightColor(global: Texture, regional: Texture, photograph: Texture, coords: ReturnType<typeof earthSurfaceCoordinates>) {
+  // The regional 2016 VIIRS annual radiance composite has a documented
+  // display shoulder baked into its sRGB texture. Feather the independent
+  // regional and global composites in linear display light.
+  const night = regionalCoordinates(coords.geographic, [-130.66666666666663, 29.099166666666626, -113.59999999999995, 46.1658333333333], 2);
   const luminance = vec3(0.2126, 0.7152, 0.0722);
   const globalLight = texture(global, coords.globalUV).rgb.dot(luminance);
-  const regionalLight = texture(regional, night.regionalUV).rgb.dot(luminance);
-  return mix(globalLight, regionalLight, night.blend).mul(vec3(1, 0.88, 0.74));
+  // Match mean linear display luminance over the co-registered opaque area.
+  const regionalLight = texture(regional, night.regionalUV).rgb.dot(luminance).mul(iss.displayMatch.regionalGain);
+  const composite = mix(globalLight, regionalLight, night.blend).mul(vec3(1, 0.88, 0.74));
+
+  // The photograph carries its own irregular coverage mask. Its display colors
+  // are already sRGB-decoded by the sampler. Return to the annual composite
+  // as the screen footprint grows from one to two regional grid cells.
+  const local = regionalCoordinates(coords.geographic, iss.bounds, 0.01);
+  const observed = texture(photograph, local.regionalUV);
+  const footprint = fwidth(coords.geographic);
+  const resolutionWeight = footprint.x.max(footprint.y).smoothstep(1 / 240, 2 / 240).oneMinus();
+  return mix(composite, observed.rgb, observed.a.mul(local.blend).mul(resolutionWeight));
 }

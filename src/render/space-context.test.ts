@@ -21,7 +21,7 @@ it('reuses Space shadows during paused orbit and guide selection, and restores t
   const texture = new THREE.Texture();
   const canvas = new EventTarget() as HTMLCanvasElement;
   const space = await createSpaceContext({} as THREE.WebGPURenderer, canvas, scenario, sample,
-    texture, texture, texture, texture, { opacity: () => float(0) } as unknown as CloudLayer);
+    texture, texture, texture, texture, texture, { opacity: () => float(0) } as unknown as CloudLayer);
   try {
     const sun = space.shipScene.children.find(object => object instanceof THREE.DirectionalLight)!;
     const guides = space.shipScene.getObjectByName('Camera field of view')!;

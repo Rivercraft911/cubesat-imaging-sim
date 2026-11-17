@@ -33,6 +33,7 @@ export function makeSensorMaterial(
   ship: THREE.CubeTexture,
   western: THREE.Texture,
   westernNight: THREE.Texture,
+  stanfordNight: THREE.Texture,
   cloudLayer: CloudLayer,
   aerial: AerialTransfer,
 ) {
@@ -149,7 +150,7 @@ export function makeSensorMaterial(
           .mul(vec3(1, 1, 1 / 0.9966471893352525 ** 2))
           .normalize();
         const sunCos = normal.dot(u.sun).toVar();
-        const cityLights = earthNightColor(night, westernNight, coords).toVar();
+        const cityLights = earthNightColor(night, westernNight, stanfordNight, coords).toVar();
         const cloud = cloudLayer.intersect(u.origin, ray).toVar();
         // Miss rays retain a continuous tangent proxy. Replacing them with a
         // fixed point makes limb-crossing fragment quads select unrelated mips.

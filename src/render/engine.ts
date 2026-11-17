@@ -102,6 +102,7 @@ export async function createImagingEngine(
       cloud,
       western,
       westernNight,
+      stanfordNight,
       regionalCloud,
       fallback,
     } = earthTextures;
@@ -162,6 +163,7 @@ export async function createImagingEngine(
         night,
         western,
         westernNight,
+        stanfordNight,
         cloudLayer,
       ),
     );
@@ -178,6 +180,7 @@ export async function createImagingEngine(
       hardware.front,
       western,
       westernNight,
+      stanfordNight,
       cloudLayer,
       space.sensorAerial,
     );

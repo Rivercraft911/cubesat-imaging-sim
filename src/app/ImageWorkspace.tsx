@@ -12,7 +12,7 @@ type Downlink = ReturnType<typeof useDownlink>;
 export type Feed = 'source' | 'received';
 
 const MAIN_LIGHTING_NOTES = {
-  pass: 'Main and 360° share sunlight, clouds and atmospheric scattering. Bay Area city lights come from a 500 m composite.',
+  pass: 'Main and 360° share sunlight, clouds and atmospheric scattering.',
   reference: 'The daylight reference keeps the lighting from the source imagery.',
   twilight: 'Twilight brightness uses the local Sun angle and the diffuse light and camera response specified in Camera settings.',
 };
@@ -162,12 +162,13 @@ export function ImageWorkspace({
               The source cannot resolve sensor-scale detail.
             </p>}
             <p title={progress.message}>
-              {view === 'space' ? 'Earth: NASA MODIS / Solar System Scope. City lights: NASA Black Marble. Clouds: NASA Goddard.'
+              {view === 'space' ? 'Earth imagery from NASA MODIS and Solar System Scope. Cloud imagery from NASA Goddard.'
                 : progress.state === 'loading' ? 'Retrieving aerial detail…'
                   : (image?.attribution ?? 'Solar System Scope / NASA Goddard')}
               {view !== 'space' && image && ` · ${fmt(image.sourceResolutionM, 1)} m raster`}
             </p>
             {progress.state === 'error' && view !== 'space' && <p>Detail unavailable; retained the loaded imagery.</p>}
+            {!received && (view !== 'image' || camera.id !== 'main' || model === 'pass') && sample.sunElevationDeg < 6 && <p>Near Stanford, city lights use a NASA ISS photograph sampled at about 32 m. Wider coverage uses EOG VIIRS data from T. Hengl. Night brightness is illustrative.</p>}
             {view === 'image' && <p>Aerial coverage blends over dated satellite imagery. Source detail varies across the frame.</p>}
             {view === 'panorama' && <p>The viewer looks into a 360° image. Export saves a 4096 × 2048 equirectangular PNG; changing the view angle does not change the camera lenses.</p>}
             {!received && <p>{model ? MAIN_LIGHTING_NOTES[model] : 'Sun, cloud and limb lighting are illustrative.'}</p>}

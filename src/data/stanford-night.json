@@ -1,0 +1,41 @@
+{
+  "bounds": [
+    -122.65,
+    37.12,
+    -121.78,
+    37.88
+  ],
+  "crs": "EPSG:4326",
+  "size": [
+    2400,
+    2600
+  ],
+  "photo": "ISS072-E-583361",
+  "exposureUtc": "2025-01-24T05:36:48Z",
+  "reportedSourceSpacingM": 10.7,
+  "source": "https://eol.jsc.nasa.gov/SearchPhotos/photo.pl?mission=ISS072&roll=E&frame=583361",
+  "credit": "Earth Science and Remote Sensing Unit, NASA Johnson Space Center",
+  "tileTemplate": "https://eol.jsc.nasa.gov/images/MapTiles/tiled_astronaut_photos/ISS072-E-583361/12/{x}/{y}.png",
+  "tileRangeXYInclusive": [
+    [
+      652,
+      1581
+    ],
+    [
+      662,
+      1592
+    ]
+  ],
+  "tileSetSha256": "7b634f28b522fece97fd6e6cb4d823ade06d72388f8906b048f5639286603d1b",
+  "fileSha256": "3cd4c23dca518a19b2223d10ce0cdc079e128f999c874877c4ff8da1ee4f3d06",
+  "displayMatch": {
+    "meanPhoto": 0.025903119720325225,
+    "meanTintedRegional": 0.09665227482995953,
+    "regionalGain": 0.26800320805585404,
+    "sampleCount": 171225,
+    "sample": "Nearest regional texel at each fourth photo pixel center with alpha >= 250.",
+    "units": "Linear display luminance before pass lighting, arbitrary relative scale.",
+    "regionalAssetSha256": "a4cc073348394fb0a4fd03c9ad015b6c3623b84f99a97c5d96133cb3100c1923"
+  },
+  "processing": "NASA z12 tiles (~30 m spacing at Stanford), projected to a ~32 m geographic grid. Linear RGB display transfer 12*RGB/(1+11*max(RGB)), then sRGB encoding. Coverage alpha has a 256-pixel smooth edge feather. WebP quality 97, method 6, lossless alpha. Separate acquisition, illustrative relative city-light brightness."
+}
