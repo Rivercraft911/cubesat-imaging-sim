@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SOURCE_SELECTION, displaySelection, selectSourceCamera } from './view-selection';
 
 describe('viewfinder camera selection', () => {
+  it('edits the physical rear lens when it is picked in Space', () => {
+    const rear = selectSourceCamera(DEFAULT_SOURCE_SELECTION, 'space', 'wideB');
+    expect(displaySelection(rear, null).cameraId).toBe('wideB');
+    expect(displaySelection({ ...rear, view: 'image' }, null).cameraId).toBe('main');
+  });
   it('keeps the raw Wide B camera when visiting 360 and editing a camera in Space', () => {
     const image = selectSourceCamera(DEFAULT_SOURCE_SELECTION, 'image', 'wideB');
     const panorama = { ...image, view: 'panorama' } as const;

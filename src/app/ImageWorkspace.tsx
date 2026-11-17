@@ -1,7 +1,7 @@
 import type { RefObject } from 'react';
 import { buildStreams } from '../downlink';
 import type { ImageryProgress } from '../imagery/provider';
-import type { EngineStatus, GroundImage, RenderView } from '../render';
+import type { EngineStatus, GroundImage, RenderView, WideMountDragMode } from '../render/types';
 import { mainImageModel, type CameraConfig, type CameraMetrics, type SensorProfile, type SimulationSample, type Target } from '../sim';
 import { fmt } from './fields';
 import { Icon } from './Icon';
@@ -40,7 +40,7 @@ export function ImageWorkspace({
   view, camera, sensor, sample, target, altitudeM, bodyWidthM, canvas, host, status, metrics, image, progress,
   feed, setFeed, linkActive, downlink, inspection, setInspection, quality, setQuality,
   panoramaProjection, setPanoramaProjection, panoramaFov, setPanoramaFov,
-  resetSpaceView,
+  resetSpaceView, spaceMountMode,
 }: {
   view: RenderView;
   camera: CameraConfig;
@@ -68,6 +68,7 @@ export function ImageWorkspace({
   quality: 'high' | 'low';
   setQuality: (quality: 'high' | 'low') => void;
   resetSpaceView: () => void;
+  spaceMountMode: WideMountDragMode | null;
 }) {
   const model = view === 'image' && camera.id === 'main' ? mainImageModel(camera) : undefined;
   const received = feed === 'received' && linkActive;
@@ -181,7 +182,9 @@ export function ImageWorkspace({
         </details>
       </div>
       {view === 'panorama' && interactivePanorama && <span className="image-hint">Drag to look around · Scroll to zoom</span>}
-      {!received && view === 'space' && <span className="image-hint">Click a camera to edit · Drag to orbit · Scroll to approach</span>}
+      {!received && view === 'space' && <span className="image-hint">{spaceMountMode
+        ? `Drag the selected lens to ${spaceMountMode} · Drag elsewhere to orbit`
+        : 'Click a camera to edit · Drag to orbit · Scroll to approach'}</span>}
       {!received && view === 'image' && progress.state !== 'loading' && <span className="image-hint">Scroll to zoom · Drag to pan · Double-click for 1:1</span>}
       {progress.state === 'loading' && view === 'image' && <span className="image-hint" role="status">{progress.message}</span>}
     </section>

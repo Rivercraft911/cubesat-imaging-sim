@@ -4,7 +4,7 @@ import type { CameraId } from '../sim';
 export interface SourceSelection {
   view: RenderView;
   imageCameraId: CameraId;
-  spaceCameraId: 'main' | 'wideA';
+  spaceCameraId: CameraId;
 }
 
 export const DEFAULT_SOURCE_SELECTION: SourceSelection = {
@@ -12,7 +12,7 @@ export const DEFAULT_SOURCE_SELECTION: SourceSelection = {
 };
 
 export function selectSourceCamera(source: SourceSelection, view: RenderView, id: CameraId): SourceSelection {
-  if (view === 'space') return { ...source, view, spaceCameraId: id === 'main' ? id : 'wideA' };
+  if (view === 'space') return { ...source, view, spaceCameraId: id };
   if (view === 'panorama' && id !== 'main') return { ...source, view };
   return { ...source, view: 'image', imageCameraId: id };
 }

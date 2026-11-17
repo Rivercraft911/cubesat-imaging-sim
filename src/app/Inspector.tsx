@@ -4,7 +4,8 @@ import { TwilightSettings } from './TwilightSettings';
 import { getSensor, SENSOR_PROFILES } from '../sim';
 import type { CameraConfig, CameraId, Lens, Pointing, Projection, Scenario, Vec3 } from '../sim';
 import { fmt, NumberField, SelectField } from './fields';
-import { editCamera, wideMountBodyYM } from '../sim/camera-edit';
+import { editCamera } from '../sim/camera-edit';
+import { WideMountEditor, type MountTool } from './WideMountEditor';
 
 type InspectorProps = {
   section: 'optics' | 'orbit' | 'geometry';
@@ -12,6 +13,7 @@ type InspectorProps = {
   onChange: (scenario: Scenario) => void;
   onSelectPass: (scenario: Scenario) => void;
   cameraId: CameraId;
+  mountTool: MountTool;
 };
 
 type ScenarioSettings = Pick<InspectorProps, 'scenario' | 'onChange'>;
@@ -113,13 +115,9 @@ const BODY_DIMENSIONS = [
 const MOUNT_ANGLES = [['yawDeg', 'Yaw'], ['pitchDeg', 'Pitch'], ['rollDeg', 'Roll']] as const;
 const MOUNT_AXES = ['X', 'Y', 'Z'] as const;
 
-function Geometry({ camera, scenario, onChange, onCameraChange }: CameraSettings) {
+function Geometry({ camera, scenario, onChange, onCameraChange, mountTool }: CameraSettings & { mountTool: MountTool }) {
   const body = scenario.body;
   const wideId = camera.id === 'main' ? null : camera.id;
-  const nominalY = wideId ? wideMountBodyYM(wideId, body.depthM) : 0;
-  const offsetMm = (camera.positionBodyM[1] - nominalY) * Math.sign(nominalY) * 1_000;
-  const standOffMm = Number(offsetMm.toFixed(1)) || 0;
-  const standOffSliderMm = Math.max(0, Math.min(10, standOffMm));
   const changeBody = (change: Partial<Scenario['body']>) => onChange({ ...scenario, body: { ...body, ...change } });
   const changePosition = (axis: number, positionM: number) => {
     const positionBodyM: Vec3 = [...camera.positionBodyM];
@@ -129,16 +127,9 @@ function Geometry({ camera, scenario, onChange, onCameraChange }: CameraSettings
 
   return <>
     <h2 className="section-heading">{camera.id === 'main' ? 'Main camera' : '360° pair'} mount</h2>
-    {camera.id !== 'main' && <p className="note">The opposite mount follows these edits, rotated 180° around body Z.</p>}
     {wideId && <>
-      <label className="select-field">
-        <span>Extra stand-off · {fmt(standOffMm, 1)} mm</span>
-        <input type="range" min={0} max={10} step={0.1} value={standOffSliderMm}
-          aria-label="Extra stand-off" aria-valuetext={`${fmt(standOffSliderMm, 1)} mm`}
-          aria-describedby="wide-stand-off-help"
-          onChange={event => changePosition(1, wideMountBodyYM(wideId, body.depthM, event.currentTarget.valueAsNumber))} />
-      </label>
-      <p className="note" id="wide-stand-off-help">At 0 mm, each optical center sits {fmt((Math.abs(nominalY) - body.depthM / 2) * 1000, 1)} mm beyond its body face. The slider moves both lenses outward together.</p>
+      <p className="note">{wideId === 'wideA' ? 'Front face · Wide A' : 'Rear face · Wide B'}. The opposite mount follows.</p>
+      <WideMountEditor camera={camera} face={wideId} body={body} tool={mountTool} onChange={onCameraChange} />
     </>}
     <div className="field-grid">
       {MOUNT_AXES.map((axis, i) => <NumberField key={axis} label={`Body ${axis}`} unit="mm" value={camera.positionBodyM[i] * 1000}
@@ -159,13 +150,13 @@ function Geometry({ camera, scenario, onChange, onCameraChange }: CameraSettings
   </>;
 }
 
-export function Inspector({ section, scenario, onChange, onSelectPass, cameraId }: InspectorProps) {
+export function Inspector({ section, scenario, onChange, onSelectPass, cameraId, mountTool }: InspectorProps) {
   const camera = scenario.cameras.find(config => config.id === cameraId);
   const onCameraChange = (change: Partial<CameraConfig>) => onChange(editCamera(scenario, cameraId, change));
 
   return <div className="inspector-content" key={section === 'orbit' ? section : `${section}-${cameraId}`}>
     {section === 'orbit' && <Orbit scenario={scenario} onChange={onChange} onSelectPass={onSelectPass} />}
     {section === 'optics' && camera && <Optics camera={camera} scenario={scenario} onChange={onChange} onCameraChange={onCameraChange} />}
-    {section === 'geometry' && camera && <Geometry camera={camera} scenario={scenario} onChange={onChange} onCameraChange={onCameraChange} />}
+    {section === 'geometry' && camera && <Geometry camera={camera} scenario={scenario} onChange={onChange} onCameraChange={onCameraChange} mountTool={mountTool} />}
   </div>;
 }

@@ -1,0 +1,97 @@
+.wide-mount-editor {
+  margin: 0 0 20px;
+}
+.wide-mount-toolbar, .wide-mount-plot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.wide-mount-modes {
+  display: inline-flex;
+  gap: 2px;
+  border-radius: 4px;
+  padding: 2px;
+  background: #101316;
+}
+.wide-mount-modes button, .wide-mount-reset {
+  padding: 6px 10px;
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.wide-mount-modes button[aria-pressed="true"] {
+  color: #fff;
+  background: #ffffff1c;
+}
+.wide-mount-plot {
+  margin: 8px 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.wide-mount-map {
+  margin-inline: auto;
+}
+.wide-mount-pad {
+  min-height: 96px;
+  max-height: 200px;
+  position: relative;
+  border: 1px solid #59616c;
+  border-radius: 3px;
+  background: #101316;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+.wide-mount-pad:focus-visible {
+  outline: 2px solid #a7caff;
+  outline-offset: 3px;
+}
+.wide-mount-pad::before, .wide-mount-pad::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  background: #353f49;
+}
+.wide-mount-pad::before {
+  inset: 0 auto 0 50%;
+  width: 1px;
+}
+.wide-mount-pad::after {
+  inset: 50% 0 auto;
+  height: 1px;
+}
+.wide-mount-travel {
+  position: absolute;
+  outline: 1px dashed #6a7684;
+  pointer-events: none;
+}
+.wide-mount-marker {
+  position: absolute;
+  z-index: 1;
+  width: 13px;
+  height: 13px;
+  transform: translate(-50%, 50%);
+  border: 2px solid #101316;
+  border-radius: 50%;
+  background: #b9d7ff;
+  outline: 1px solid #b9d7ff;
+  pointer-events: none;
+}
+.wide-mount-marker.outside {
+  background: #101316;
+  outline-color: #ffd7a3;
+}
+.wide-mount-readout {
+  margin: 8px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+.wide-mount-help {
+  margin: 2px 0 0;
+}
+.wide-mount-editor .wide-mount-stand-off {
+  margin: 12px 0 0;
+}
+.wide-mount-stand-off > span {
+  margin: 0;
+}

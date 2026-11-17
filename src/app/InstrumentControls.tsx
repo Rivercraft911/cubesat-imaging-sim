@@ -3,6 +3,7 @@ import type { CameraConfig, CameraId, Scenario } from '../sim';
 import { DownlinkControls } from './DownlinkControls';
 import { Icon } from './Icon';
 import { Inspector } from './Inspector';
+import type { MountTool } from './WideMountEditor';
 import { fmt } from './fields';
 import type { useDownlink } from './useDownlink';
 import type { LiveLinkControls } from './LinkStrip';
@@ -40,15 +41,16 @@ export function OpticalControls({ camera, cameras, panel, pairedView, onCamera, 
         <span>f/{fmt(camera.lens.fNumber, 1)}</span><small>{fmt(camera.exposureMs, 2)} ms</small>
       </div>
       <button className={`settings-button ${panel ? 'active' : ''}`} aria-expanded={panel !== null}
-        onClick={() => onPanel(panel ?? 'optics')}><Icon name="settings" />Settings</button>
+        onClick={() => onPanel(panel ?? (isMain ? 'optics' : 'geometry'))}><Icon name="settings" />Settings</button>
     </div>
   );
 }
 
-export function InspectorDrawer({ panel, scenario, cameraId, onChange, onSelectPass, onClose, onPanel, downlink, linkControls, ready }: {
+export function InspectorDrawer({ panel, scenario, cameraId, mountTool, onChange, onSelectPass, onClose, onPanel, downlink, linkControls, ready }: {
   panel: Panel;
   scenario: Scenario;
   cameraId: CameraId;
+  mountTool: MountTool;
   onChange: (scenario: Scenario) => void;
   onSelectPass: (scenario: Scenario) => void;
   onClose: () => void;
@@ -80,7 +82,7 @@ export function InspectorDrawer({ panel, scenario, cameraId, onChange, onSelectP
             Rate assumes successful demodulation, 20% roll-off and 10% application reserve; RF lock is not simulated.
           </p>
         </div>
-      ) : <Inspector section={panel} scenario={scenario} onChange={onChange} onSelectPass={onSelectPass} cameraId={cameraId} />}
+      ) : <Inspector section={panel} scenario={scenario} onChange={onChange} onSelectPass={onSelectPass} cameraId={cameraId} mountTool={mountTool} />}
     </aside>
   );
 }

@@ -5,7 +5,7 @@ import {
   computeMetrics, createDefaultScenario, getSensor, parseScenario, sampleState,
 } from '../sim';
 import type { CameraConfig, CameraId, Scenario } from '../sim';
-import type { RenderView } from '../render';
+import type { RenderView, WideMountDragMode } from '../render/types';
 import { download } from './fields';
 import { ImageWorkspace, type Feed } from './ImageWorkspace';
 import { InspectorDrawer, OpticalControls, type Panel } from './InstrumentControls';
@@ -32,6 +32,7 @@ export default function App() {
   const [panoramaFov, setPanoramaFov] = useState(90);
   const [quality, setQuality] = useState<'high' | 'low'>('high');
   const [panel, setPanel] = useState<Panel | null>(null);
+  const [mountMode, setMountMode] = useState<WideMountDragMode>('move');
   const [notice, setNotice] = useState('');
   const [capturing, setCapturing] = useState(false);
   const [comparison, setComparison] = useState<ComparisonSnapshot | null>(null);
@@ -57,6 +58,7 @@ export default function App() {
   const linkStart = liveLinkStartAvailability(time, status.ready);
   const received = linkActive && feed === 'received';
   const { view: displayView, cameraId: activeCameraId } = displaySelection(source, received ? downlink.receiver : null);
+  const spaceMountMode = displayView === 'space' && panel === 'geometry' && activeCameraId !== 'main' ? mountMode : null;
   const imageryScenario = useMemo(() => comparison ? withMainFocalLength(comparison.scenario, Math.max(...comparisonFocals)) : scenario, [comparison, comparisonFocals, scenario]);
   const { image, baseImage, progress } = useImagery(engine, version, imageryScenario, comparison?.timeS ?? time, comparisonBusy);
 
@@ -73,10 +75,18 @@ export default function App() {
     instance?.setCameraSelectHandler?.(id => {
       setSource(current => selectSourceCamera(current, 'space', id));
       setFeed('source');
-      setPanel('optics');
+      setPanel(id === 'main' ? 'optics' : 'geometry');
     });
     return () => instance?.setCameraSelectHandler?.(null);
   }, [version, engine]);
+  useEffect(() => {
+    const instance = engine.current;
+    const edit = (id: 'wideA' | 'wideB', change: Partial<CameraConfig>) => {
+      setScenario(current => editCamera(current, id, change));
+    };
+    instance?.setWideMountDrag(spaceMountMode, edit);
+    return () => instance?.setWideMountDrag(null, edit);
+  }, [spaceMountMode, version, engine]);
   useEffect(() => { engine.current?.setInspection(inspection); }, [inspection, version, engine]);
   useEffect(() => { engine.current?.setQuality(quality); }, [quality, version, engine]);
   useEffect(() => { engine.current?.setPanoramaProjection(panoramaProjection); }, [panoramaProjection, version, engine]);
@@ -187,6 +197,7 @@ export default function App() {
   const selectCamera = (id: CameraId) => {
     setFeed('source');
     setSource(current => selectSourceCamera(current, displayView, id));
+    if (displayView === 'space') setPanel(id === 'main' ? 'optics' : 'geometry');
   };
 
   return (
@@ -203,10 +214,10 @@ export default function App() {
           inspection={inspection} setInspection={mode => { engine.current?.setInspection(mode); setInspection(mode); }} quality={quality} setQuality={setQuality}
           panoramaProjection={panoramaProjection} setPanoramaProjection={setPanoramaProjection}
           panoramaFov={panoramaFov} setPanoramaFov={setPanoramaFov}
-          resetSpaceView={() => engine.current?.resetSpaceView?.()} />
+          spaceMountMode={spaceMountMode} resetSpaceView={() => engine.current?.resetSpaceView?.()} />
         {panel !== 'downlink' && <LinkStrip downlink={downlink} controls={linkControls}
           onOpenSettings={() => setPanel('downlink')} />}
-        {panel && <InspectorDrawer panel={panel} scenario={scenario} cameraId={activeCameraId}
+        {panel && <InspectorDrawer panel={panel} scenario={scenario} cameraId={activeCameraId} mountTool={{ mode: mountMode, onMode: setMountMode }}
           onChange={change} onSelectPass={next => { stopDownlink(); setPlaying(false); setTime(0); change(next); }} onClose={() => setPanel(null)} onPanel={setPanel}
           downlink={linkStart.message && !linkActive ? { ...downlink, error: linkStart.message } : downlink}
           linkControls={linkControls} ready={linkStart.enabled} />}
