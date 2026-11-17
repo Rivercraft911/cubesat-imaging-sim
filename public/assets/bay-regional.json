@@ -1,0 +1,209 @@
+{
+  "id": "sentinel-2b-bay-regional-2025-03-24",
+  "file": "bay-regional.webp",
+  "width": 6656,
+  "height": 6144,
+  "boundsMercator": [
+    -13692500,
+    4461476.466949167,
+    -13533500,
+    4608235.561256707
+  ],
+  "boundsWgs84": [
+    -123.00182027806547,
+    37.16031654673675,
+    -121.57349897631543,
+    38.2036553180715
+  ],
+  "outputCrs": "EPSG:3857",
+  "outputTransform": [
+    23.888221153846153,
+    0.0,
+    -13692500.0,
+    0.0,
+    -23.886571339117836,
+    4608235.561256707
+  ],
+  "mapGridSpacingM": [
+    23.888221153846153,
+    23.886571339117836
+  ],
+  "sourceResolutionM": 18.905047199025507,
+  "resolutionNote": "Output ground spacing approximated at the mosaic center by EPSG:3857 spacing times cos(latitude).",
+  "nativeCrs": "EPSG:32610",
+  "nativeGridSpacingM": 10,
+  "attribution": "Contains modified Copernicus Sentinel data 2025",
+  "license": "https://sentinels.copernicus.eu/documents/247904/690755/Sentinel_Data_Legal_Notice",
+  "source": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-c1-l2a",
+  "sourceAssets": [
+    {
+      "id": "S2B_T10SDG_20250324T190338_L2A",
+      "item": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-c1-l2a/items/S2B_T10SDG_20250324T190338_L2A",
+      "visualCog": "https://e84-earth-search-sentinel-data.s3.us-west-2.amazonaws.com/sentinel-2-c1-l2a/10/S/DG/2025/3/S2B_T10SDG_20250324T190338_L2A/TCI.tif",
+      "checksumMultihash": "12204982be362faafb37e3664d94105c6e5b6720cd661de21978701579fb280d96b9",
+      "sensedUTC": "2025-03-24T19:04:15.607000Z",
+      "tileCloudCoverPct": 0.001219,
+      "nativeShape": [
+        10980,
+        10980
+      ],
+      "nativeTransform": [
+        10,
+        0,
+        399960,
+        0,
+        -10,
+        4200000
+      ]
+    },
+    {
+      "id": "S2B_T10SEG_20250324T190338_L2A",
+      "item": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-c1-l2a/items/S2B_T10SEG_20250324T190338_L2A",
+      "visualCog": "https://e84-earth-search-sentinel-data.s3.us-west-2.amazonaws.com/sentinel-2-c1-l2a/10/S/EG/2025/3/S2B_T10SEG_20250324T190338_L2A/TCI.tif",
+      "checksumMultihash": "1220e412f4102bee978ea8c1f27e9985235963579289bfd18232a1ebae7a8bd07f73",
+      "sensedUTC": "2025-03-24T19:04:12.525000Z",
+      "tileCloudCoverPct": 0.00358,
+      "nativeShape": [
+        10980,
+        10980
+      ],
+      "nativeTransform": [
+        10,
+        0,
+        499980,
+        0,
+        -10,
+        4200000
+      ]
+    },
+    {
+      "id": "S2B_T10SFG_20250324T190338_L2A",
+      "item": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-c1-l2a/items/S2B_T10SFG_20250324T190338_L2A",
+      "visualCog": "https://e84-earth-search-sentinel-data.s3.us-west-2.amazonaws.com/sentinel-2-c1-l2a/10/S/FG/2025/3/S2B_T10SFG_20250324T190338_L2A/TCI.tif",
+      "checksumMultihash": "1220fdf2b7c66613d11ac925a97ce30f12d0d5530980578c5da4bccd75570d7d52cf",
+      "sensedUTC": "2025-03-24T19:04:09.062000Z",
+      "tileCloudCoverPct": 0.000421,
+      "nativeShape": [
+        10980,
+        10980
+      ],
+      "nativeTransform": [
+        10,
+        0,
+        600000,
+        0,
+        -10,
+        4200000
+      ]
+    },
+    {
+      "id": "S2B_T10SDH_20250324T190338_L2A",
+      "item": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-c1-l2a/items/S2B_T10SDH_20250324T190338_L2A",
+      "visualCog": "https://e84-earth-search-sentinel-data.s3.us-west-2.amazonaws.com/sentinel-2-c1-l2a/10/S/DH/2025/3/S2B_T10SDH_20250324T190338_L2A/TCI.tif",
+      "checksumMultihash": "12205dd313846bd4b37bb0180ec814c0ee26263120365465bf4657d5e0d93eac7f5c",
+      "sensedUTC": "2025-03-24T19:04:00.913000Z",
+      "tileCloudCoverPct": 0.001148,
+      "nativeShape": [
+        10980,
+        10980
+      ],
+      "nativeTransform": [
+        10,
+        0,
+        399960,
+        0,
+        -10,
+        4300020
+      ]
+    },
+    {
+      "id": "S2B_T10SEH_20250324T190338_L2A",
+      "item": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-c1-l2a/items/S2B_T10SEH_20250324T190338_L2A",
+      "visualCog": "https://e84-earth-search-sentinel-data.s3.us-west-2.amazonaws.com/sentinel-2-c1-l2a/10/S/EH/2025/3/S2B_T10SEH_20250324T190338_L2A/TCI.tif",
+      "checksumMultihash": "1220b66cad9c6b8e2410b8b505a612137785d119116af70909a432a6d58773af40c9",
+      "sensedUTC": "2025-03-24T19:03:57.812000Z",
+      "tileCloudCoverPct": 0.001038,
+      "nativeShape": [
+        10980,
+        10980
+      ],
+      "nativeTransform": [
+        10,
+        0,
+        499980,
+        0,
+        -10,
+        4300020
+      ]
+    },
+    {
+      "id": "S2B_T10SFH_20250324T190338_L2A",
+      "item": "https://earth-search.aws.element84.com/v1/collections/sentinel-2-c1-l2a/items/S2B_T10SFH_20250324T190338_L2A",
+      "visualCog": "https://e84-earth-search-sentinel-data.s3.us-west-2.amazonaws.com/sentinel-2-c1-l2a/10/S/FH/2025/3/S2B_T10SFH_20250324T190338_L2A/TCI.tif",
+      "checksumMultihash": "122032c24afecab1d1e871ac4519c05a608d8994d484651255f4ea53300d2b5b4f20",
+      "sensedUTC": "2025-03-24T19:03:54.491000Z",
+      "tileCloudCoverPct": 0.000299,
+      "nativeShape": [
+        10980,
+        10980
+      ],
+      "nativeTransform": [
+        10,
+        0,
+        600000,
+        0,
+        -10,
+        4300020
+      ]
+    }
+  ],
+  "acquisitionDate": "2025-03-24",
+  "retrievedUTC": "2026-11-17T10:21:04.404193+00:00",
+  "processing": "Same-pass Sentinel-2B L2A visual COGs (B04/B03/B02). Mosaicked on their native UTM grid, first valid pixel in listed order, then reprojected with GDAL area-average to the regional Web Mercator grid. Black NoData is excluded. No synthetic fill, sharpening, or extra color mapping. WebP quality 90, method 4.",
+  "coverageCheck": {
+    "validPixels": 40894464,
+    "sampleWaterRgbBeforeWebp": {
+      "centralBay": {
+        "lonLat": [
+          -122.4,
+          37.835
+        ],
+        "rgb": [
+          21,
+          42,
+          37
+        ]
+      },
+      "southBay": {
+        "lonLat": [
+          -122.18,
+          37.55
+        ],
+        "rgb": [
+          16,
+          37,
+          29
+        ]
+      },
+      "pacific": {
+        "lonLat": [
+          -122.74,
+          37.75
+        ],
+        "rgb": [
+          4,
+          14,
+          19
+        ]
+      }
+    }
+  },
+  "software": {
+    "rasterio": "1.5.2",
+    "gdal": "3.12.2",
+    "numpy": "2.2.5",
+    "pillow": "11.2.1",
+    "libwebp": "1.5.0"
+  },
+  "sha256": "f38cd569ff53401d813494fc7e510996201b3126ed8ce33118df6d1f5640563b"
+}

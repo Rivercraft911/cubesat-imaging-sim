@@ -1,6 +1,7 @@
 import type { GroundImage } from '../render';
 import type { Bounds } from './bounds';
 import { cacheImage, cachedImage } from './cache';
+import { featherCoverage, featheredBitmap } from './coverage';
 
 const SERVICE = 'https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer';
 export type ImageryProgress = { state: 'preview' | 'loading' | 'ready' | 'error'; message: string; resolutionM?: number };
@@ -11,6 +12,16 @@ export async function openingImage(signal?: AbortSignal): Promise<GroundImage> {
     fetch('/assets/bay-preview.webp', { signal }).then(r => r.blob()),
   ]);
   return { ...meta, image: await createImageBitmap(blob) };
+}
+
+/** Continuous satellite coverage remains resident beneath changing aerial LOD. */
+export async function regionalImage(signal: AbortSignal): Promise<GroundImage> {
+  const response = await fetch('/assets/bay-regional.json', { signal });
+  if (!response.ok) throw new Error('Regional imagery unavailable');
+  const meta = await response.json();
+  const raster = await fetch(`/assets/${meta.file}`, { signal });
+  if (!raster.ok) throw new Error('Regional raster unavailable');
+  return { ...meta, image: await createImageBitmap(await raster.blob()) };
 }
 
 async function imageTile(bounds: Bounds, width: number, height: number, signal: AbortSignal): Promise<ImageBitmap> {
@@ -45,7 +56,9 @@ export async function shotImage(bounds: Bounds, desiredPixelM: number, latitudeD
   const height = Math.max(512, Math.ceil(spanY * scale / 2) * 2);
   const canvas = document.createElement('canvas');
   canvas.width = width; canvas.height = height;
-  const context = canvas.getContext('2d', { alpha: false })!;
+  // Preserve the service's NoData alpha so missing survey coverage reveals
+  // the coarser Earth layer instead of an opaque black rectangle.
+  const context = canvas.getContext('2d', { alpha: true })!;
   const midX = (bounds[0] + bounds[2]) / 2, midY = (bounds[1] + bounds[3]) / 2;
   const tiles: Bounds[] = [
     [bounds[0], midY, midX, bounds[3]], [midX, midY, bounds[2], bounds[3]],
@@ -64,6 +77,7 @@ export async function shotImage(bounds: Bounds, desiredPixelM: number, latitudeD
       r.value.close();
     }
   });
+  featherCoverage(canvas);
   const sourceResolutionM = Math.max(spanX / width, spanY / height) * cosine;
   return {
     image: await createImageBitmap(canvas), boundsMercator: bounds, sourceResolutionM,
@@ -81,5 +95,5 @@ export async function preparedShot(bounds: Bounds, signal: AbortSignal): Promise
   if (!entry) return null;
   const blob = await fetch(`/assets/shots/${entry.file}`, { signal }).then(r => { if (!r.ok) throw new Error('Prepared imagery unavailable'); return r.blob(); });
   signal.throwIfAborted();
-  return { ...entry, image: await createImageBitmap(blob) };
+  return { ...entry, image: await featheredBitmap(blob) };
 }
