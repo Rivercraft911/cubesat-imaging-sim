@@ -1,4 +1,5 @@
 import * as THREE from "three/webgpu";
+import { contains, shotBounds, type Bounds } from "../imagery/bounds";
 import { bindSensorCamera, bindPanoramaCameras } from "./camera-bindings";
 import { InitializationScope } from "./initialization";
 import { loadEarthTextures } from "./earth-textures";
@@ -98,6 +99,7 @@ export async function createImagingEngine(
       dirty = true;
     let spaceVisited = false,
       panoramaVisited = false;
+    let detailBounds: Bounds | null = null;
     let sceneRevision = 0,
       groundRevision = 0;
     const space = initialization.own(
@@ -373,6 +375,10 @@ export async function createImagingEngine(
         },
         sources: { panorama: renderPanorama, native: presentNative },
         withTime(pts, drawSource, study) {
+          if (study?.groundRevision !== undefined && study.groundRevision !== groundRevision) {
+            throw new Error("Ground imagery changed during capture. Capture both lenses again.");
+          }
+          const detailEnabled = sensor.u.hasGround.value;
           const displayScenario = scenario;
           const displaySample = sample,
             displayTime = timeS;
@@ -381,6 +387,10 @@ export async function createImagingEngine(
               scenario = study.scenario;
               timeS = study.timeS;
               sample = sampleState(scenario, timeS);
+              // A telephoto crop can be resident while a wider lens is being compared.
+              if (detailBounds && !contains(detailBounds, shotBounds(scenario, timeS))) {
+                sensor.u.hasGround.value = 0;
+              }
               sceneRevision++;
             } else if (pts !== undefined) {
               timeS = pts / 1e6;
@@ -390,6 +400,7 @@ export async function createImagingEngine(
             drawSource();
           } finally {
             if (study) {
+              sensor.u.hasGround.value = detailEnabled;
               scenario = displayScenario;
               sceneRevision++;
             }
@@ -432,8 +443,10 @@ export async function createImagingEngine(
         sample = sampleState(scenario, t);
         dirty = true;
       },
+      getGroundRevision: () => groundRevision,
       setGroundImage(image) {
         groundLayers.setDetail(image);
+        detailBounds = image?.boundsMercator ?? null;
         groundRevision++;
         dirty = true;
       },

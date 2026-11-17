@@ -27,10 +27,11 @@ export interface CaptureOptions {
   height?: number;
   type?: "image/png" | "image/jpeg";
   /** Freeze the render state for this capture without changing the viewfinder. */
-  study?: { scenario: Scenario; timeS: number };
+  study?: { scenario: Scenario; timeS: number; groundRevision?: number };
 }
 export interface ImagingEngine {
   updateScenario(scenario: Scenario, timeS?: number): void;
+  getGroundRevision(): number;
   setGroundImage(image: GroundImage | null): void;
   setBaseGroundImage(image: GroundImage | null): void;
   setView(view: RenderView, cameraId?: CameraId): void;
