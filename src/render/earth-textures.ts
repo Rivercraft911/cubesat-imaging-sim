@@ -1,10 +1,11 @@
 import * as THREE from "three/webgpu";
+import { publicAsset } from "../assets";
 
 /** Actual source imagery, with mipmaps for native sensor and globe sampling. */
 export async function loadEarthTextures() {
   const loader = new THREE.TextureLoader();
   const load = async (path: string) => {
-    const t = await loader.loadAsync(path);
+    const t = await loader.loadAsync(publicAsset(path));
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 16;
     t.generateMipmaps = true;
@@ -14,12 +15,12 @@ export async function loadEarthTextures() {
   // Wait for every independent load so a failed sibling cannot leak textures
   // that finish later than the first rejected image request.
   const loaded = await Promise.allSettled([
-    load("/assets/earth-day.jpg"),
-    load("/assets/earth-night.jpg"),
-    load("/assets/earth-clouds.webp"),
-    load("/assets/west-coast-regional.webp"),
-    load("/assets/earth-night-western-us.webp"),
-    load("/assets/earth-clouds-western-us.png"),
+    load("earth-day.jpg"),
+    load("earth-night.jpg"),
+    load("earth-clouds.webp"),
+    load("west-coast-regional.webp"),
+    load("earth-night-western-us.webp"),
+    load("earth-clouds-western-us.png"),
   ]);
   const failure = loaded.find((result) => result.status === "rejected");
   if (failure?.status === "rejected") {

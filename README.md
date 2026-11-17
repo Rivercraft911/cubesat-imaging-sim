@@ -2,6 +2,8 @@
 
 A CubeSat imaging instrument for Stanford SSI. Explore a Stanford pass, square native IMX676 images, three camera mounts, and a real encode–link–decode video path.
 
+[Open the simulator](https://rivercraft911.github.io/cubesat-imaging-sim/). Checked pushes to `main` deploy automatically to GitHub Pages.
+
 ```sh
 npm ci --legacy-peer-deps
 npm run dev

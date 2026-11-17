@@ -1,4 +1,5 @@
 import type { GroundImage } from "../render";
+import { publicAsset } from "../assets";
 import type { Bounds } from "./bounds";
 import { cacheImage, cachedImage } from "./cache";
 import { featherCoverage } from "./coverage";
@@ -15,8 +16,8 @@ export type ImageryProgress = {
 
 export async function openingImage(signal?: AbortSignal): Promise<GroundImage> {
   const [meta, blob] = await Promise.all([
-    fetch("/assets/bay-preview.json", { signal }).then((r) => r.json()),
-    fetch("/assets/bay-preview.webp", { signal }).then((r) => r.blob()),
+    fetch(publicAsset("bay-preview.json"), { signal }).then((r) => r.json()),
+    fetch(publicAsset("bay-preview.webp"), { signal }).then((r) => r.blob()),
   ]);
   return { ...meta, image: await createImageBitmap(blob) };
 }
@@ -27,12 +28,12 @@ export async function regionalImage(
   level: "fine" | "wide" = "fine",
 ): Promise<GroundImage> {
   const response = await fetch(
-    `/assets/bay-regional${level === "wide" ? "-wide" : ""}.json`,
+    publicAsset(`bay-regional${level === "wide" ? "-wide" : ""}.json`),
     { signal },
   );
   if (!response.ok) throw new Error("Regional imagery unavailable");
   const meta = await response.json();
-  const raster = await fetch(`/assets/${meta.file}`, { signal });
+  const raster = await fetch(publicAsset(meta.file), { signal });
   if (!raster.ok) throw new Error("Regional raster unavailable");
   return { ...meta, image: await createImageBitmap(await raster.blob()) };
 }
@@ -198,7 +199,7 @@ export async function preparedShot(
   signal: AbortSignal,
   finerThanM = Infinity,
 ): Promise<GroundImage | null> {
-  preparedIndex ??= fetch("/assets/shots/manifest.json")
+  preparedIndex ??= fetch(publicAsset("shots/manifest.json"))
     .then((r) => (r.ok ? (r.json() as Promise<PreparedImage[]>) : []))
     .catch(() => []);
   const list = await preparedIndex;
@@ -214,7 +215,7 @@ export async function preparedShot(
     )
     .sort((a, b) => a.sourceResolutionM - b.sourceResolutionM)[0];
   if (!entry) return null;
-  const response = await fetch(`/assets/shots/${entry.file}`, { signal });
+  const response = await fetch(publicAsset(`shots/${entry.file}`), { signal });
   if (!response.ok) throw new Error("Prepared imagery unavailable");
   const blob = await response.blob();
   signal.throwIfAborted();
