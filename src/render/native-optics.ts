@@ -39,8 +39,7 @@ export function createOpticsPipeline(
       type: THREE.HalfFloatType,
     });
   const rawTarget = linearTarget(),
-    blurTarget = linearTarget(),
-    blurTarget2 = linearTarget();
+    blurTarget = linearTarget();
   const psf = makePsf(rawTarget.texture);
   return {
     render({
@@ -54,7 +53,7 @@ export function createOpticsPipeline(
       target,
       warnings,
     }: NativeOpticsInput) {
-      for (const buffer of [rawTarget, blurTarget, blurTarget2])
+      for (const buffer of [rawTarget, blurTarget])
         buffer.setSize(target.width, target.height);
       quad.material = material;
       renderer.setRenderTarget(rawTarget);
@@ -80,7 +79,8 @@ export function createOpticsPipeline(
       renderer.render(quadScene, quadCamera);
       psf.input.value = blurTarget.texture;
       psf.delta.value.set(0, sigma / crop.w);
-      renderer.setRenderTarget(blurTarget2);
+      // The horizontal pass consumed the raw pixels. Reuse their storage for the vertical pass.
+      renderer.setRenderTarget(rawTarget);
       renderer.render(quadScene, quadCamera);
       let dx = 0,
         dy = 0;
@@ -115,7 +115,7 @@ export function createOpticsPipeline(
       if (length > 256)
         warnings.add(`${c.name}: shutter smear limited to 256 native pixels.`);
       const bound = Math.min(1, 256 / Math.max(length, 0.0001));
-      psf.input.value = blurTarget2.texture;
+      psf.input.value = rawTarget.texture;
       psf.motion.value = 1;
       psf.delta.value.set(
         (dx * bound) / (6.75 * crop.z),
@@ -127,7 +127,7 @@ export function createOpticsPipeline(
     },
     dispose() {
       psf.material.dispose();
-      for (const target of [rawTarget, blurTarget, blurTarget2])
+      for (const target of [rawTarget, blurTarget])
         target.dispose();
     },
   };
