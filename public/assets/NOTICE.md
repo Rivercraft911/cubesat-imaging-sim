@@ -1,0 +1,9 @@
+# Imagery credits
+
+`earth-day.jpg` and `earth-night.jpg`: Solar System Scope / INOVE, [Earth textures](https://www.solarsystemscope.com/textures/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Unmodified publisher JPEGs. The full license is included as `CC-BY-4.0.txt`.
+
+`earth-clouds.webp`: NASA Goddard Space Flight Center / Reto Stöckli; compositing enhancements by Robert Simmon. [Blue Marble cloud composite](https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/), [NASA imagery terms](https://www.nasa.gov/nasa-brand-center/images-and-media/). The 2001 multiday source receives a documented display transfer and area reduction to 4096 × 2048, then lossless WebP encoding. Static appearance, not simulated-date weather. No NASA endorsement is implied. Exact sources, transformations and hashes for these three assets are in `earth-provenance.json`; copies were retained from the local Yapling observatory assets.
+
+`bay-preview.webp`: USDA / USGS [National Map imagery](https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer). The opening mosaic joins zoom-12 cached tiles without geographic resampling. It encodes an intermediate JPEG quality 94, masks near-black missing coverage (all RGB channels ≤2), and encodes WebP quality 94. `bay-preview.json` records bounds, tile addresses and hash; `scripts/cache-bay.py` reproduces it with Pillow. Aerial acquisition dates vary and are not the simulated pass date.
+
+Bundled telephoto patches and runtime shot detail use [USDA NAIP 2022 via CDFW](https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer). See [patch provenance](shots/NOTICE.md). Runtime exports use bilinear EPSG:3857 rasters with source alpha and a bounded local browser cache. Reported raster spacing describes the fetched grid, not a measured optical resolution or guarantee of source detail.

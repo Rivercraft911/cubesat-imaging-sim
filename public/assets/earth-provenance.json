@@ -1,0 +1,92 @@
+[
+  {
+    "file": "earth-day.jpg",
+    "publisher": "Solar System Scope / INOVE",
+    "source_url": "https://www.solarsystemscope.com/textures/download/8k_earth_daymap.jpg",
+    "source_dimensions": [
+      8192,
+      4096
+    ],
+    "runtime_dimensions": [
+      8192,
+      4096
+    ],
+    "source_sha256": "88ab060b6e7d241cfc590c69f528fab2b3247b738d40124cb590999a6fe44abc",
+    "runtime_sha256": "88ab060b6e7d241cfc590c69f528fab2b3247b738d40124cb590999a6fe44abc",
+    "runtime_bytes": 4565076,
+    "transform": "Unmodified original8192x4096JPEG, bytes identical to publisher download",
+    "acquisition_epoch": null
+  },
+  {
+    "file": "earth-night.jpg",
+    "publisher": "Solar System Scope / INOVE",
+    "source_url": "https://www.solarsystemscope.com/textures/download/2k_earth_nightmap.jpg",
+    "source_dimensions": [
+      2048,
+      1024
+    ],
+    "runtime_dimensions": [
+      2048,
+      1024
+    ],
+    "source_sha256": "c16fd1bc096ab91a5c5265c6ff9847c43f489f2e2ee790ccdbcbd03251cf3a5a",
+    "runtime_sha256": "c16fd1bc096ab91a5c5265c6ff9847c43f489f2e2ee790ccdbcbd03251cf3a5a",
+    "runtime_bytes": 255287,
+    "transform": "Unmodified publisher JPEG; shader provides a restrained display-only night emission and daylight fade.",
+    "acquisition_epoch": null,
+    "retrieved_utc": "2026-10-26T03:41:33.580066+00:00"
+  },
+  {
+    "file": "earth-clouds.webp",
+    "runtime_dimensions": [
+      4096,
+      2048
+    ],
+    "runtime_bytes": 4038162,
+    "runtime_sha256": "e7388f0af812c2c5bac2e5bf10c323047ad11bcdf549cf54787af47ec8f65e65",
+    "encoding": "lossless WebP; achromatic RGB decode of one grayscale coverage channel",
+    "validation": {
+      "maximum_channel_error": 0,
+      "grayscale_channels_equal": true,
+      "comparison": "Complete decode equals soft-toe-before-BOX coverage, not original display-image codes"
+    },
+    "revision": "nasa-blue-marble-cloud-2001-global-soft-toe-v2",
+    "publisher": "NASA Goddard Space Flight Center / Reto Stöckli; Robert Simmon",
+    "credit": "NASA Goddard Space Flight Center / Reto Stöckli; compositing enhancements by Robert Simmon.",
+    "license": "NASA imagery-use guidelines; educational/informational use with source acknowledgment; no endorsement.",
+    "license_url": "https://www.nasa.gov/nasa-brand-center/images-and-media/",
+    "acquisition_epoch": "2001 multiday composite, released 2002; not simulated epoch or live weather",
+    "sources": [
+      {
+        "hemisphere": "W",
+        "source_url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud.W.2001210.21600x21600.png",
+        "source_dimensions": [
+          21600,
+          21600
+        ],
+        "source_bytes": 210808929,
+        "source_sha256": "d7a6b03bb54b8ba56f72af6d1d49f191a25c12e911c43739c900e893d10eb814"
+      },
+      {
+        "hemisphere": "E",
+        "source_url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud.E.2001210.21600x21600.png",
+        "source_dimensions": [
+          21600,
+          21600
+        ],
+        "source_bytes": 211800444,
+        "source_sha256": "11eb1aaf8e6056b9aebc0de4894dc5ad8a21cbe8738c6ddc92e88701eb7e1b99"
+      }
+    ],
+    "transform": "Verify each original NASA grayscale hemisphere, apply the documented 256-code pointwise display-only soft-toe LUT to native texels, then BOX-reduce each hemisphere to4096square and join W then E into8192x4096. BOX-reduce that result2x2 to4096x2048. Encode lossless WebP. No geographic painting, synthetic clouds, sharpening or gap filling. The remap precedes all spatial reduction; runtime does not apply a second transfer to these global coverage values.",
+    "source_limitation": "The checked western and eastern source images have a hard cloud-coverage discontinuity at longitude 0 degrees, visible over the Southern Ocean. This fixed geographical seam is preserved in both the global maps and native tiles; it is not a runtime tile boundary.",
+    "display_transfer": {
+      "revision": "cloud-mask-soft-toe-v1",
+      "purpose": "Display-only low-code suppression of visible NASA composite swath plateaus; not a calibrated cloud fraction, optical depth or gamma correction.",
+      "toe_code": 64,
+      "formula": "For source code c in[0,255], t=min(1,c/64); output=floor(c*t*t*(3-2*t)+0.5). Codes64..255 are unchanged.",
+      "quantization": "8-bit R8/gray coverage, round-half-up in both Python and JavaScript. Codes0..9 map to0; genuine faint cloud signal is reduced along with source artifacts.",
+      "filter_order": "Apply to native source/decoded tile texels before area reduction or GPU mip generation. Never apply the nonlinear toe to an already filtered coverage sample."
+    }
+  }
+]

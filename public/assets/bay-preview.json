@@ -1,0 +1,31 @@
+{
+  "id": "usgs-bay-preview-z12",
+  "file": "bay-preview.webp",
+  "width": 3328,
+  "height": 3840,
+  "boundsMercator": [
+    -13668163.649842076,
+    4461476.466949167,
+    -13540972.434775542,
+    4608235.561256707
+  ],
+  "sourceResolutionM": 30.23938778466656,
+  "attribution": "USDA / USGS \u00b7 The National Map",
+  "source": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer",
+  "tileLevel": 12,
+  "tiles": {
+    "x": [
+      651,
+      663
+    ],
+    "y": [
+      1577,
+      1591
+    ]
+  },
+  "acquisitionDate": null,
+  "retrievedUTC": "2026-11-17T09:25:10.970842+00:00",
+  "processing": "Native cached 256px tiles mosaicked without geographic resampling; JPEG quality94 4:4:4. Converted to WebP quality94; all RGB channels <=2 interpreted as missing cached coverage and made transparent. No synthetic geography.",
+  "limits": "Dated aerial mosaic with baked illumination; opening preview, not the source detail limit.",
+  "sha256": "5bc460f0f796be1ae3302a1c48e4a810c1529cacc4f4a033e470aaa99b5f03c6"
+}

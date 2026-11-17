@@ -1,0 +1,84 @@
+[
+  {
+    "id": "cdfw-naip-2022-stanford",
+    "file": "stanford.webp",
+    "targetIds": [
+      "stanford"
+    ],
+    "width": 8192,
+    "height": 6144,
+    "boundsMercator": [
+      -13607605.63101066,
+      4493060.850161646,
+      -13592131.957723333,
+      4504666.105127141
+    ],
+    "sourceResolutionM": 1.5,
+    "attribution": "USDA NAIP 2022 \u00b7 California Department of Fish and Wildlife",
+    "source": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer",
+    "catalog": "https://catalog.data.gov/dataset/naip-2022-60cm-california",
+    "publicDomain": "https://www.usgs.gov/centers/eros/science/usgs-eros-archive-aerial-photography-national-agriculture-imagery-program-naip",
+    "sourceNativeResolutionM": 0.6,
+    "sourceAcquisitionYear": 2022,
+    "retrievedUTC": "2026-11-17T09:44:38.718370+00:00",
+    "projectedPixelSpacingM": 1.8888761337070423,
+    "transparentPixels": 0,
+    "processing": "Four bilinear natural-color EPSG:3857 exports with returned extents verified. Stitched at matching pixel edges and encoded as WebP quality 90 with source alpha.",
+    "sha256": "0253951a14b320c3c5cb58c1800af8d74ec65ad48dfbfaaed4d30d8498745946"
+  },
+  {
+    "id": "cdfw-naip-2022-golden-gate",
+    "file": "golden-gate.webp",
+    "targetIds": [
+      "goldenGate"
+    ],
+    "width": 6144,
+    "height": 6144,
+    "boundsMercator": [
+      -13640055.32822762,
+      4548181.532238695,
+      -13628388.650223978,
+      4559848.210242338
+    ],
+    "sourceResolutionM": 1.5,
+    "attribution": "USDA NAIP 2022 \u00b7 California Department of Fish and Wildlife",
+    "source": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer",
+    "catalog": "https://catalog.data.gov/dataset/naip-2022-60cm-california",
+    "publicDomain": "https://www.usgs.gov/centers/eros/science/usgs-eros-archive-aerial-photography-national-agriculture-imagery-program-naip",
+    "sourceNativeResolutionM": 0.6,
+    "sourceAcquisitionYear": 2022,
+    "retrievedUTC": "2026-11-17T09:47:33.171230+00:00",
+    "projectedPixelSpacingM": 1.8988733729887812,
+    "transparentPixels": 0,
+    "processing": "Four bilinear natural-color EPSG:3857 exports with returned extents verified. Stitched at matching pixel edges and encoded as WebP quality 90 with source alpha.",
+    "sha256": "ab573085cd580eba2fe65be0f48c0ecc3554124b63a07b01d1d8fb1544f5133a"
+  },
+  {
+    "id": "cdfw-naip-2022-bay-bridge",
+    "file": "bay-bridge.webp",
+    "targetIds": [
+      "bayBridge",
+      "sanFrancisco"
+    ],
+    "width": 6144,
+    "height": 6144,
+    "boundsMercator": [
+      -13628554.784550857,
+      4545970.546828271,
+      -13616890.587102849,
+      4557634.744276277
+    ],
+    "sourceResolutionM": 1.5,
+    "attribution": "USDA NAIP 2022 \u00b7 California Department of Fish and Wildlife",
+    "source": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer",
+    "catalog": "https://catalog.data.gov/dataset/naip-2022-60cm-california",
+    "publicDomain": "https://www.usgs.gov/centers/eros/science/usgs-eros-archive-aerial-photography-national-agriculture-imagery-program-naip",
+    "sourceNativeResolutionM": 0.6,
+    "sourceAcquisitionYear": 2022,
+    "retrievedUTC": "2026-11-17T09:47:45.475693+00:00",
+    "projectedPixelSpacingM": 1.8984696367198606,
+    "transparentPixels": 0,
+    "processing": "Four bilinear natural-color EPSG:3857 exports with returned extents verified. Stitched at matching pixel edges and encoded as WebP quality 90 with source alpha.",
+    "sha256": "37eeb1a2b026b4040ab7324cd9e16cf8845c37325e87b942e7fe9a967cb609eb"
+  }
+]

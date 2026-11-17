@@ -1,0 +1,5 @@
+# Bay Area shot imagery
+
+These WebP mosaics contain natural-color 2022 USDA National Agriculture Imagery Program aerial orthophotography distributed by the California Department of Fish and Wildlife. NAIP imagery is public domain. [California 2022 imagery catalog](https://catalog.data.gov/dataset/naip-2022-60cm-california), [CDFW image service](https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer), [USGS NAIP archive and public-domain status](https://www.usgs.gov/centers/eros/science/usgs-eros-archive-aerial-photography-national-agriculture-imagery-program-naip)
+
+The service exports the 0.60 m source on a common Web Mercator grid using bilinear interpolation. The bundled grid corresponds to approximately 1.5 m per pixel at each patch center. `scripts/cache-shots.py` verifies the export extents and stitches the rasters into WebP images, preserving any source transparency. `manifest.json` records each patch's EPSG:3857 bounds, output dimensions, dates, and SHA-256 hash. Source light, shadows, water appearance, and seasonal conditions belong to the aerial survey. Survey seams are visible over water in the bridge patches.
