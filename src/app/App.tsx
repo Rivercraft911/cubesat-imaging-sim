@@ -12,6 +12,8 @@ import { Timeline } from './Timeline';
 import { liveLinkStartAvailability } from './live-link-start';
 import { PASS_END_S } from './playback-clock';
 import { useDownlink } from './useDownlink';
+import { useLinkControls } from './useLinkControls';
+import { LinkStrip } from './LinkStrip';
 import { useEngine } from './useEngine';
 import { useImagery } from './useImagery';
 import { editCamera } from '../sim/camera-edit';
@@ -44,6 +46,7 @@ export default function App() {
     engine.current?.setReceivedPanorama(currentFeed.current === 'received' && receiver === '360' ? image : null);
   }, [engine]);
   const downlink = useDownlink(engine, scenario, time, advanceDownlink, receiveFrame);
+  const linkControls = useLinkControls(downlink);
   const stopDownlink = downlink.stop;
   const linkActive = downlink.state === 'receiving' || downlink.state === 'starting';
   const linkStart = liveLinkStartAvailability(time, status.ready);
@@ -188,10 +191,12 @@ export default function App() {
           panoramaProjection={panoramaProjection} setPanoramaProjection={setPanoramaProjection}
           panoramaFov={panoramaFov} setPanoramaFov={setPanoramaFov}
           resetSpaceView={() => engine.current?.resetSpaceView?.()} />
+        {panel !== 'downlink' && <LinkStrip downlink={downlink} controls={linkControls}
+          onOpenSettings={() => setPanel('downlink')} />}
         {panel && <InspectorDrawer panel={panel} scenario={scenario} cameraId={activeCameraId}
           onChange={change} onClose={() => setPanel(null)} onPanel={setPanel}
           downlink={linkStart.message && !linkActive ? { ...downlink, error: linkStart.message } : downlink}
-          ready={linkStart.enabled} />}
+          linkControls={linkControls} ready={linkStart.enabled} />}
       </div>
       <OpticalControls camera={camera} cameras={scenario.cameras} panel={panel} pairedView={displayView !== 'image'}
         onCamera={id => { setCameraId(id); selectView(displayView === 'space' ? 'space' : displayView === 'panorama' && id !== 'main' ? 'panorama' : 'image'); }}

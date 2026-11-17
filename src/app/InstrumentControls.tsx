@@ -5,6 +5,7 @@ import { Icon } from './Icon';
 import { Inspector } from './Inspector';
 import { fmt } from './fields';
 import type { useDownlink } from './useDownlink';
+import type { LiveLinkControls } from './LinkStrip';
 
 export type Panel = 'optics' | 'orbit' | 'geometry' | 'downlink';
 const panels: Record<Panel, string> = { optics: 'Camera', orbit: 'Orbit', geometry: 'Spacecraft', downlink: 'Live link' };
@@ -44,7 +45,7 @@ export function OpticalControls({ camera, cameras, panel, pairedView, onCamera, 
   );
 }
 
-export function InspectorDrawer({ panel, scenario, cameraId, onChange, onClose, onPanel, downlink, ready }: {
+export function InspectorDrawer({ panel, scenario, cameraId, onChange, onClose, onPanel, downlink, linkControls, ready }: {
   panel: Panel;
   scenario: Scenario;
   cameraId: CameraId;
@@ -52,6 +53,7 @@ export function InspectorDrawer({ panel, scenario, cameraId, onChange, onClose, 
   onClose: () => void;
   onPanel: (panel: Panel) => void;
   downlink: ReturnType<typeof useDownlink>;
+  linkControls: LiveLinkControls;
   ready: boolean;
 }) {
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -70,10 +72,11 @@ export function InspectorDrawer({ panel, scenario, cameraId, onChange, onClose, 
       </nav>
       {panel === 'downlink' ? (
         <div className="inspector-content">
-          <DownlinkControls downlink={downlink} disabled={!ready} />
+          <DownlinkControls downlink={downlink} controls={linkControls} disabled={!ready} />
           <p className="note">
             Live capture advances the pass at 1×. The main feed preserves its sensor aspect ratio.
             Ground stitching uses square crops from the wide cameras. Codec support is measured in this browser.
+            Rate assumes successful demodulation, 20% roll-off and 10% application reserve; RF lock is not simulated.
           </p>
         </div>
       ) : <Inspector section={panel} scenario={scenario} onChange={onChange} cameraId={cameraId} />}

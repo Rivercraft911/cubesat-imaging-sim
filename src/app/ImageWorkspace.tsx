@@ -11,7 +11,7 @@ type Downlink = ReturnType<typeof useDownlink>;
 export type Feed = 'source' | 'received';
 
 function ReceiverCaption({ downlink }: { downlink: Downlink }) {
-  const streams = buildStreams(downlink.config).filter(stream => (
+  const streams = buildStreams(downlink.activeConfig ?? downlink.config).filter(stream => (
     downlink.receiver === 'main' ? stream.id === 'main' : stream.id !== 'main'
   ));
   const first = streams[0];
@@ -78,12 +78,6 @@ export function ImageWorkspace({
         <canvas ref={canvas} style={{ visibility: received && (!receivedPanorama || !downlink.receiverHasFrame) ? 'hidden' : undefined }} aria-label={receivedPanorama ? 'Decoded downlink panorama' : `${camera.name} simulated sensor image`} />
         {received && <>
           {!receivedPanorama && <canvas ref={downlink.receiverCanvas} className="received-canvas" aria-label="Decoded downlink image" />}
-          <div className="receive-label" role="status">
-            {downlink.receiverHasFrame
-              ? `Received · ${downlink.config.codec.toUpperCase()}`
-              : 'Waiting for first decoded frame…'}
-            {(downlink.outage || downlink.stats?.inOutage) && ' · Link interrupted'}
-          </div>
         </>}
         {!status.ready && <div className="engine-message" role="status">
           <p>{status.message}</p>
