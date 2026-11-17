@@ -1,6 +1,5 @@
 import * as THREE from "three/webgpu";
 import {
-  texture,
   uniform,
   positionWorld,
   normalWorld,
@@ -27,6 +26,7 @@ import type { CloudLayer } from "./cloud-layer";
 import { CLOUD_EQUATORIAL_RADIUS_M, CLOUD_POLAR_RADIUS_M } from "./cloud-layer";
 import { createCameraPicking } from "./camera-picking";
 import { createAerialTransfer } from "./aerial-transfer";
+import { earthSurfaceCoordinates, earthDayColor, earthNightColor } from "./earth-surface";
 
 /** Aesthetic context is isolated from native sensor formation and radiometry.
  * Two depth ranges keep a millimeter-scale spacecraft and planetary geometry
@@ -38,7 +38,8 @@ export async function createSpaceContext(
   sample: SimulationSample,
   day: THREE.Texture,
   night: THREE.Texture,
-  cloud: THREE.Texture,
+  western: THREE.Texture,
+  westernNight: THREE.Texture,
   cloudLayer: CloudLayer,
 ) {
   let shipKey = "";
@@ -141,7 +142,7 @@ export async function createSpaceContext(
     emissiveIntensity: 0.035,
   });
   const planet = new THREE.Mesh(
-    new THREE.SphereGeometry(6_378_137, 128, 64),
+    new THREE.SphereGeometry(6_378_137, 512, 256),
     planetMaterial,
   );
   planet.rotation.x = Math.PI / 2;
@@ -157,7 +158,7 @@ export async function createSpaceContext(
     .opacity(positionWorld.add(worldOrigin))
     .mul(0.82);
   const clouds = new THREE.Mesh(
-    new THREE.SphereGeometry(CLOUD_EQUATORIAL_RADIUS_M, 128, 64),
+    new THREE.SphereGeometry(CLOUD_EQUATORIAL_RADIUS_M, 512, 256),
     cloudsMaterial,
   );
   clouds.rotation.x = Math.PI / 2;
@@ -177,8 +178,10 @@ export async function createSpaceContext(
   const aerial = createAerialTransfer(atmosphereContext);
   const contextCamera =
     atmosphereContext.cameraPositionECEF as unknown as THREE.Node<"vec3">;
-  planetMaterial.emissiveNode = texture(night)
-    .rgb.mul(float(0.1).sub(normalWorld.dot(sunDirection)).smoothstep(0, 0.2))
+  const surfaceCoords = earthSurfaceCoordinates(positionWorld.add(worldOrigin));
+  planetMaterial.colorNode = earthDayColor(day, western, surfaceCoords);
+  planetMaterial.emissiveNode = earthNightColor(night, westernNight, surfaceCoords)
+    .mul(float(0.1).sub(normalWorld.dot(sunDirection)).smoothstep(0, 0.2))
     .mul(0.035);
   planetMaterial.outputNode = vec4(
     aerial.toPoint(

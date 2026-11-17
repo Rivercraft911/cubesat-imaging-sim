@@ -1,6 +1,7 @@
 import * as THREE from "three/webgpu";
 import type { CloudLayer } from "./cloud-layer";
 import type { AerialTransfer } from "./aerial-transfer";
+import { earthSurfaceCoordinates, earthDayColor, earthNightColor } from "./earth-surface";
 import {
   Fn,
   If,
@@ -19,12 +20,10 @@ import {
 import {
   cameraRayWGSL,
   earthHitWGSL,
-  surfaceUVWgsl,
   localMercatorWGSL,
 } from "./projection";
 const rayFn = wgslFn(cameraRayWGSL),
   hitFn = wgslFn(earthHitWGSL),
-  uvFn = wgslFn(surfaceUVWgsl),
   localUV = wgslFn(localMercatorWGSL);
 export function makeSensorMaterial(
   day: THREE.Texture,
@@ -85,17 +84,13 @@ export function makeSensorMaterial(
       ).toVar();
       // Image samples execute for every fragment. A branch on Earth/raster
       // coverage would make implicit derivatives (and mip selection) undefined.
-      const surface = hit.w.greaterThan(0).select(hit.xyz, vec3(1, 0, 0));
-      const coords = vec4(uvFn(surface) as ReturnType<typeof vec4>).toVar();
-      const base = texture(day, coords.xy).rgb.toVar();
-      const geographic = coords.xy.mul(vec2(360, 180)).sub(vec2(180, 90));
-      const southwest = vec2(-130.66666666666666, 29.1),
-        northeast = vec2(-113.6, 46.166666666666664);
-      const westUV = geographic.sub(southwest).div(northeast.sub(southwest));
-      const edge = geographic.sub(southwest).min(northeast.sub(geographic));
-      const blend = edge.x.min(edge.y).smoothstep(0, 0.25);
-      base.assign(mix(base, texture(western, westUV).rgb, blend));
-      const delta = u.localOrigin.add(ray.mul(hit.w));
+      const surface = hit.xyz;
+      const coords = earthSurfaceCoordinates(surface);
+      const base = earthDayColor(day, western, coords).toVar();
+      const delta = hit.w.greaterThan(0).select(
+        u.localOrigin.add(ray.mul(hit.w)),
+        surface.mul(6378137).sub(u.groundReference),
+      );
       const mercator = vec2(
         localUV(delta, u.groundReference, u.referenceLat) as ReturnType<
           typeof vec2
@@ -147,11 +142,7 @@ export function makeSensorMaterial(
           .mul(vec3(1, 1, 1 / 0.9966471893352525 ** 2))
           .normalize();
         const sunCos = normal.dot(u.sun).toVar();
-        const cityLights = mix(
-          texture(night, coords.xy).rgb,
-          texture(westernNight, westUV).r.mul(vec3(1, 0.88, 0.74)),
-          blend,
-        ).toVar();
+        const cityLights = earthNightColor(night, westernNight, coords).toVar();
         const cloud = cloudLayer.intersect(u.origin, ray).toVar();
         const cloudPoint = cloud.w
           .greaterThan(0)

@@ -108,7 +108,8 @@ export async function createImagingEngine(
         sample,
         day,
         night,
-        cloud,
+        western,
+        westernNight,
         cloudLayer,
       ),
     );

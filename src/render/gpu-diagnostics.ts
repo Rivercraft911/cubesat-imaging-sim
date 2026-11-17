@@ -2,7 +2,6 @@ import type { WebGPURenderer } from "three/webgpu";
 
 /** Keep driver diagnostics attached to the real application shader sources. */
 export function installGpuDiagnostics(renderer: WebGPURenderer) {
-  if (!import.meta.env.DEV) return () => {};
   const device = (renderer.backend as unknown as { device: GPUDevice }).device;
   const seen = new Set<string>();
   const report = (message: string) => {
