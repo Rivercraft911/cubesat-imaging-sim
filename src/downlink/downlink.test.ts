@@ -1,11 +1,32 @@
 import { describe, expect, it } from 'vitest'
+import { getSensor } from '../sim/catalog'
 import { KeyRecovery, LinkTimeline } from './channel'
 import { buildStreams, DEFAULT_DOWNLINK_CONFIG } from './types'
 
 describe('video program', () => {
-  it('assigns the full default budget to a single main stream', () => {
+  it('defaults to a 16:9 main stream when the caller omits the sensor ratio', () => {
     expect(buildStreams(DEFAULT_DOWNLINK_CONFIG)).toEqual([
       { id: 'main', width: 1920, height: 1080, bitrateBps: 4_000_000 },
+    ])
+  })
+
+  it('encodes the square IMX676 main feed and preserves the shared program budget', () => {
+    const sensor = getSensor('imx676')
+    expect(buildStreams({
+      ...DEFAULT_DOWNLINK_CONFIG,
+      program: 'both',
+      architecture: 'ground',
+      mainAspectRatio: sensor.width / sensor.height,
+    })).toEqual([
+      { id: 'main', width: 1080, height: 1080, bitrateBps: 2_000_000 },
+      { id: 'wideA', width: 1080, height: 1080, bitrateBps: 1_000_000 },
+      { id: 'wideB', width: 1080, height: 1080, bitrateBps: 1_000_000 },
+    ])
+  })
+
+  it('rounds a custom main encode width to the nearest even pixel', () => {
+    expect(buildStreams({ ...DEFAULT_DOWNLINK_CONFIG, mainAspectRatio: 1001 / 1080 })).toEqual([
+      { id: 'main', width: 1002, height: 1080, bitrateBps: 4_000_000 },
     ])
   })
 

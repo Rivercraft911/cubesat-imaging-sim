@@ -179,7 +179,14 @@ export async function probeDownlink(config: DownlinkConfig, signal?: AbortSignal
   if (config.resolution !== 720 && config.resolution !== 1080 && config.resolution !== 2160) {
     return { supported: false, reason: 'Select a 720p, 1080p or 2160p downlink preset.' }
   }
+  const mainAspect = config.mainAspectRatio
+  if (config.program !== '360' && mainAspect !== undefined && (!Number.isFinite(mainAspect) || mainAspect <= 0)) {
+    return { supported: false, reason: 'The main sensor aspect ratio must be positive and finite.' }
+  }
   const specs = buildStreams(config)
+  if (specs.some(stream => !Number.isSafeInteger(stream.width))) {
+    return { supported: false, reason: 'The selected sensor aspect ratio and encode height exceed supported frame dimensions.' }
+  }
   if (!specs.every(stream => Number.isSafeInteger(stream.bitrateBps) && stream.bitrateBps > 0)) {
     return { supported: false, reason: 'Encoder targets must be positive integer bit rates for every selected stream.' }
   }

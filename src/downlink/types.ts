@@ -15,6 +15,8 @@ export interface DownlinkConfig {
   architecture: StitchArchitecture
   codec: VideoCodec
   resolution: DownlinkResolution
+  /** Main recording width divided by height. Standalone callers default to 16:9. */
+  mainAspectRatio?: number
   fps: 15 | 30
   videoBitrateBps: number
   linkBitrateBps: number
@@ -51,7 +53,9 @@ export function buildStreams(config: DownlinkConfig): StreamSpec[] {
   const spherical = config.program === 'both' ? total - main : total
   const streams: StreamSpec[] = []
   if (config.program !== '360') {
-    streams.push({ id: 'main', width: Math.round(height * 16 / 9), height, bitrateBps: main })
+    const aspect = config.mainAspectRatio ?? 16 / 9
+    const width = Math.max(2, Math.round(height * aspect / 2) * 2)
+    streams.push({ id: 'main', width, height, bitrateBps: main })
   }
   if (config.program !== 'main') {
     if (config.architecture === 'onboard') {
