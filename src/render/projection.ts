@@ -11,6 +11,9 @@ fn cameraRay(pixel: vec2f, sensor: vec3f, lens: vec4f) -> vec4f {
  let direction = vec3f(xy * sin(theta) / max(radius, 0.00000001), cos(theta));
  return vec4f(select(vec3f(0,0,1), direction, radius > 0.00000001), select(0.0,1.0,valid));
 }`;
+/** xyz is in equatorial-radius units. w is the hit distance in meters, zero
+ * for a miss. Sky rays return the scaled closest point projected to the
+ * ellipsoid so UV derivatives stay continuous across the limb. */
 export const earthHitWGSL = /* wgsl */ `
 fn earthHit(origin: vec3f, direction: vec3f, c: f32) -> vec4f {
  let radii = vec3f(1.0,1.0,0.9966471893352525);
@@ -18,9 +21,11 @@ fn earthHit(origin: vec3f, direction: vec3f, c: f32) -> vec4f {
  let d = direction / radii;
  let a = dot(d,d); let b = dot(o,d);
  let discriminant = b*b-a*c;
- if (discriminant < 0.0) { return vec4f(0.0); }
+ if (discriminant < 0.0 || b >= 0.0) {
+   let closest = o + d * max(0.0, -b/a);
+   return vec4f(normalize(closest) * radii, 0.0);
+ }
  let t = c/(-b+sqrt(discriminant));
- if (t < 0.0) { return vec4f(0.0); }
  return vec4f(origin / 6378137.0 + direction*t, t*6378137.0);
 }`;
 export const surfaceUVWgsl = /* wgsl */ `

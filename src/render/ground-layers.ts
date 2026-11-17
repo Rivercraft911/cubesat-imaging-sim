@@ -31,7 +31,7 @@ export function createGroundLayers(
     result.minFilter = THREE.LinearMipmapLinearFilter;
     result.magFilter = THREE.LinearFilter;
     result.generateMipmaps = true;
-    result.anisotropy = 8;
+    result.anisotropy = 16;
     result.needsUpdate = true;
     try {
       upload(result);

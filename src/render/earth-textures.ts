@@ -6,7 +6,7 @@ export async function loadEarthTextures() {
   const load = async (path: string) => {
     const t = await loader.loadAsync(path);
     t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 8;
+    t.anisotropy = 16;
     t.generateMipmaps = true;
     t.minFilter = THREE.LinearMipmapLinearFilter;
     return t;
