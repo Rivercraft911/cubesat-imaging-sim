@@ -194,7 +194,7 @@ export default function App() {
         onCamera={id => { setCameraId(id); selectView(displayView === 'space' ? 'space' : displayView === 'panorama' && id !== 'main' ? 'panorama' : 'image'); }}
         onFocalLength={focalLengthMm => changeCamera({ lens: { ...camera.lens, focalLengthMm } })}
         onPanel={id => setPanel(current => current === id ? null : id)} />
-      <Timeline time={time} setTime={scrubTime} playing={playing} setPlaying={changePlayback}
+      <Timeline time={time} onFrameTime={setTime} onSeek={scrubTime} playing={playing && !linkActive} setPlaying={changePlayback}
         speed={speed} setSpeed={setSpeed} rangeM={sample.targetSlantRangeM} elevation={sample.targetElevationDeg} />
       {notice && <div className="status-notice" role="status" onClick={() => setNotice('')}>{notice}</div>}
     </main>
