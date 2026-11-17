@@ -1,0 +1,61 @@
+import type { CameraId, Scenario } from "../sim/types";
+export interface GroundImage {
+  image: ImageBitmap | HTMLCanvasElement;
+  /** EPSG:3857 meters: west, south, east, north. */
+  boundsMercator: [number, number, number, number];
+  sourceResolutionM: number;
+  attribution: string;
+  id: string;
+}
+export type RenderView = "image" | "space" | "panorama";
+export type CaptureCamera = CameraId | "panorama";
+export interface EngineStatus {
+  ready: boolean;
+  backend: string;
+  message?: string;
+  warnings?: string[];
+  renderMs?: number;
+  inspectionMode?: "fit" | "native" | "custom";
+  /** Physical framebuffer pixels per native sensor pixel. */
+  inspectionScale?: number;
+  width?: number;
+  height?: number;
+}
+export interface CaptureOptions {
+  cameraId?: CaptureCamera;
+  width?: number;
+  height?: number;
+  type?: "image/png" | "image/jpeg";
+}
+export interface ImagingEngine {
+  updateScenario(scenario: Scenario, timeS?: number): void;
+  setGroundImage(image: GroundImage | null): void;
+  setBaseGroundImage(image: GroundImage | null): void;
+  setView(view: RenderView, cameraId?: CameraId): void;
+  setSelectedCamera(id: CameraId | null): void;
+  resetSpaceView(): void;
+  setCameraSelectHandler(handler: ((id: CameraId) => void) | null): void;
+  setReceivedPanorama(image: HTMLCanvasElement | null): void;
+  setPanoramaProjection(projection: "perspective" | "equirectangular"): void;
+  setPanoramaFov(deg: number): void;
+  getPanoramaFov(): number;
+  setQuality(quality: "high" | "low"): void;
+  getInspectionState(): { mode: "fit" | "native" | "custom"; scale: number };
+  setInspection(mode: "fit" | "native"): void;
+  resize(width: number, height: number, dpr?: number): void;
+  render(): void;
+  capture(options?: CaptureOptions): Promise<Blob>;
+  getEncoderCanvas(
+    cameraId: CaptureCamera,
+    width?: number,
+    height?: number,
+    framePTS?: number,
+  ): Promise<HTMLCanvasElement>;
+  stitchDecodedFrames(
+    front: CanvasImageSource,
+    rear: CanvasImageSource,
+    width: number,
+    height: number,
+  ): Promise<HTMLCanvasElement>;
+  dispose(): void;
+}
