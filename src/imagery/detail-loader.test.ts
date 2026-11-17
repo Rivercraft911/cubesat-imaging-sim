@@ -223,3 +223,67 @@ it("replaces covering medium imagery with a finer prepared asset without a remot
   expect(full).not.toHaveBeenCalled();
   loader.dispose();
 });
+
+it("warms a prepared image without showing its edges and publishes it immediately at zoom", async () => {
+  const zoomed: Bounds = [100, 100, 900, 900];
+  const wider: Bounds = [0, 0, 1000, 1000];
+  const warm = deferred<GroundImage>();
+  const patch = image("prepared", zoomed, 0.6);
+  const prepared = vi.fn<typeof import("./provider").preparedShot>(() => warm.promise),
+    full = vi.fn(),
+    overview = vi.fn(),
+    publish = vi.fn();
+  const loader = new DetailLoader(
+    publish,
+    vi.fn(),
+    { prepared, overview, full },
+    () => 0,
+  );
+  loader.update({ ...view(wider), aerial: false });
+  loader.prefetch(zoomed);
+  loader.prefetch(zoomed);
+  expect(prepared).toHaveBeenCalledOnce();
+  expect(prepared.mock.lastCall?.[3]).toBe("low");
+  warm.resolve(patch);
+  await settle();
+  expect(publish.mock.calls).toEqual([[satellite]]);
+  loader.update(view(zoomed), true);
+  expect(publish.mock.lastCall?.[0]).toBe(patch);
+  loader.update(view(wider), true);
+  expect(publish.mock.lastCall?.[0]).toBe(satellite);
+  expect(overview).not.toHaveBeenCalled();
+  expect(full).not.toHaveBeenCalled();
+  loader.dispose();
+});
+
+it("reuses a pending prefetch after the zoom and discards a prefetch from a replaced aim", async () => {
+  const oldBounds: Bounds = [100, 100, 900, 900];
+  const newBounds: Bounds = [1400, 1400, 2200, 2200];
+  const old = deferred<GroundImage>();
+  const next = deferred<GroundImage>();
+  const prepared = vi
+    .fn<typeof import("./provider").preparedShot>()
+    .mockReturnValueOnce(old.promise)
+    .mockReturnValueOnce(next.promise);
+  const full = vi.fn(), publish = vi.fn();
+  const loader = new DetailLoader(
+    publish,
+    vi.fn(),
+    { prepared, overview: vi.fn(), full },
+    () => 300,
+  );
+  loader.prefetch(oldBounds);
+  loader.prefetch(newBounds);
+  expect(prepared.mock.calls[0][1].aborted).toBe(true);
+  loader.update(view(newBounds));
+  const obsolete = image("obsolete", oldBounds, 0.6);
+  const nearby = image("nearby", newBounds, 0.6);
+  old.resolve(obsolete);
+  next.resolve(nearby);
+  await settle();
+  expect((obsolete.image as ImageBitmap).close).toHaveBeenCalledOnce();
+  expect(publish.mock.calls).toEqual([[satellite], [nearby]]);
+  expect(prepared).toHaveBeenCalledTimes(2);
+  expect(full).not.toHaveBeenCalled();
+  loader.dispose();
+});

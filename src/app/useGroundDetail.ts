@@ -6,6 +6,9 @@ import { needsAerial } from "../imagery/lod";
 import { DetailLoader } from "../imagery/detail-loader";
 import type { ImageryProgress } from "../imagery/provider";
 
+// Warm the prepared coverage used for a typical telephoto change.
+const PREFETCH_FOCAL_LENGTH_MM = 100;
+
 /** Reconcile current coverage immediately on optical edits, then continue useful
  * requests through playback. A fixed source grid replaces arbitrary time bins. */
 export function useGroundDetail(
@@ -19,9 +22,10 @@ export function useGroundDetail(
     state: "preview",
     message: "Opening satellite imagery",
   });
-  const latest = useRef({ scenario, timeS });
-  latest.current = { scenario, timeS };
+  const latest = useRef({ scenario, timeS, fine, base });
+  latest.current = { scenario, timeS, fine, base };
   const reconcile = useRef<(changed?: boolean) => void>(() => {});
+  const prefetch = useRef<() => void>(() => {});
   const camera = scenario.cameras.find((c) => c.id === "main")!;
   const geometryKey = JSON.stringify([
     scenario.target,
@@ -56,13 +60,13 @@ export function useGroundDetail(
       ),
     );
     const tick = (changed = false) => {
+      const { scenario: live, timeS: frameTime, fine, base } = latest.current;
       const regional = fine?.image.width
         ? fine
         : base?.image.width
           ? base
           : null;
       if (!regional) return;
-      const { scenario: live, timeS: frameTime } = latest.current;
       const metrics = computeMetrics(live, "main", frameTime);
       const bounds = shotBounds(live, frameTime);
       const satellite = contains(regional.boundsMercator, bounds)
@@ -86,15 +90,37 @@ export function useGroundDetail(
       );
     };
     reconcile.current = tick;
+    prefetch.current = () => {
+      const { scenario: live, timeS: frameTime } = latest.current;
+      const main = live.cameras.find((item) => item.id === "main")!;
+      if (main.lens.focalLengthMm >= PREFETCH_FOCAL_LENGTH_MM) return;
+      const zoomed = {
+        ...live,
+        cameras: live.cameras.map((item) =>
+          item === main
+            ? {
+                ...main,
+                lens: { ...main.lens, focalLengthMm: PREFETCH_FOCAL_LENGTH_MM },
+              }
+            : item,
+        ),
+      };
+      loader.prefetch(shotBounds(zoomed, frameTime));
+    };
     tick();
     const poll = setInterval(tick, 350);
     return () => {
       reconcile.current = () => {};
+      prefetch.current = () => {};
       clearInterval(poll);
       loader.dispose();
     };
+  }, []);
+  useEffect(() => {
+    reconcile.current();
   }, [fine, base]);
   useEffect(() => {
+    prefetch.current();
     reconcile.current(true);
   }, [geometryKey]);
   return { detail, progress };

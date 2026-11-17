@@ -230,6 +230,7 @@ export async function preparedShot(
   bounds: Bounds,
   signal: AbortSignal,
   finerThanM = Infinity,
+  priority?: RequestPriority,
 ): Promise<GroundImage | null> {
   const list = await awaitPreparedIndex(signal);
   signal.throwIfAborted();
@@ -250,6 +251,7 @@ export async function preparedShot(
   ]);
   const response = await fetch(publicAsset(`shots/${entry.file}`), {
     signal: downloadSignal,
+    ...(priority ? { priority } : {}),
   });
   if (!response.ok) throw new Error("Prepared imagery unavailable");
   const blob = await response.blob();

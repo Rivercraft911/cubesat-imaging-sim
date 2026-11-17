@@ -21,6 +21,7 @@ type Providers = {
   full: typeof shotImage;
 };
 type Job = { plan: ShotPlan; abort: AbortController; started: number };
+type Prefetch = { bounds: Bounds; abort: AbortController; done: Promise<void> };
 const close = (image: GroundImage) => {
   if ("close" in image.image) image.image.close();
 };
@@ -32,6 +33,7 @@ export class DetailLoader {
   private current: GroundImage | null = null;
   private cache = new Map<string, GroundImage>();
   private job: Job | null = null;
+  private warm: Prefetch | null = null;
   private notBefore = 0;
   private retry = { key: "", after: 0, attempts: 0 };
   private disposed = false;
@@ -98,6 +100,35 @@ export class DetailLoader {
   private cancel() {
     this.job?.abort.abort();
     this.job = null;
+  }
+
+  /** Decode only local coverage in advance. The live view still decides when
+   * the image is useful, so zoomed-out views never display a small rectangle. */
+  prefetch(bounds: Bounds) {
+    if (this.disposed || this.cached(bounds)) return;
+    if (this.warm && contains(this.warm.bounds, bounds)) return;
+    this.warm?.abort.abort();
+    const abort = new AbortController();
+    const done = this.providers
+      .prepared(bounds, abort.signal, Infinity, "low")
+      .then((image) => {
+        if (abort.signal.aborted || this.disposed) {
+          if (image) close(image);
+          return;
+        }
+        if (!image) return;
+        if (this.cache.has(image.id)) {
+          close(image);
+          return;
+        }
+        this.remember(image);
+        if (this.view) this.update(this.view);
+        this.trim();
+      })
+      .catch(() => {
+        // Foreground loading retries independently when the shot is needed.
+      });
+    this.warm = { bounds, abort, done };
   }
 
   update(view: DetailView, geometryChanged = false) {
@@ -197,6 +228,11 @@ export class DetailLoader {
       loading("Opening whole-footprint aerial imagery…");
       // Even a covering medium-resolution raster may have a finer bundled
       // replacement. Check local assets before spending time on remote tiles.
+      const warm = this.warm;
+      if (warm && contains(warm.bounds, this.view!.bounds)) {
+        await warm.done;
+        abort.signal.throwIfAborted();
+      }
       let prepared: GroundImage | null = null;
       try {
         prepared = await this.providers.prepared(
@@ -268,6 +304,7 @@ export class DetailLoader {
   dispose() {
     this.disposed = true;
     this.cancel();
+    this.warm?.abort.abort();
     for (const image of this.cache.values()) close(image);
     this.cache.clear();
   }
