@@ -4,8 +4,11 @@ import { markSessionActive, prefersPreview, sessionWasInterrupted } from './poli
 const launch = document.querySelector<HTMLElement>('#launch')!;
 const note = launch.querySelector<HTMLElement>('#launch-note')!;
 const photo = launch.querySelector<HTMLElement>('#launch-photo')!;
-const controls = launch.querySelector<HTMLElement>('.launch-actions')!;
-const copy = launch.querySelector<HTMLButtonElement>('#copy-link')!;
+const share = launch.querySelector<HTMLButtonElement>('#share-link')!;
+const shareStatus = launch.querySelector<HTMLElement>('#share-status')!;
+if (typeof navigator.share !== 'function') {
+  share.ariaLabel = share.title = 'Copy simulator link';
+}
 const retry = launch.querySelector<HTMLButtonElement>('#try-simulator')!;
 const link = launch.querySelector<HTMLInputElement>('#share-url')!;
 const detail = launch.querySelector<HTMLDetailsElement>('#launch-detail')!;
@@ -16,7 +19,8 @@ let unmount: (() => void) | undefined;
 function preview(message: string, reason?: string) {
   launch.hidden = false;
   note.textContent = message;
-  controls.hidden = false;
+  share.hidden = false;
+  shareStatus.textContent = '';
   retry.hidden = !hasGpu;
   detail.hidden = !reason;
   detail.open = false;
@@ -30,7 +34,8 @@ async function start() {
   if (active) return;
   active = true;
   markSessionActive(true);
-  controls.hidden = photo.hidden = detail.hidden = link.hidden = true;
+  share.hidden = retry.hidden = photo.hidden = detail.hidden = link.hidden = true;
+  shareStatus.textContent = '';
   note.textContent = 'Opening simulator…';
   function failed(reason: string) {
     if (!active) return;
@@ -40,7 +45,7 @@ async function start() {
     unmount = undefined;
     retry.textContent = 'Try again';
     preview('The simulator stopped. Open this link on a laptop or desktop with WebGPU, or try again here.', reason);
-    copy.focus({ preventScroll: true });
+    retry.focus({ preventScroll: true });
   }
   try {
     const { mountSimulator } = await import('../main');
@@ -52,12 +57,23 @@ async function start() {
 }
 
 retry.addEventListener('click', start);
-copy.addEventListener('click', async () => {
+share.addEventListener('click', async () => {
+  const url = location.href;
+  link.hidden = true;
+  shareStatus.textContent = '';
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title: 'Field of View · Stanford SSI', url });
+      return;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+    }
+  }
   try {
-    await navigator.clipboard.writeText(location.href);
-    copy.textContent = 'Link copied';
+    await navigator.clipboard.writeText(url);
+    shareStatus.textContent = 'Link copied';
   } catch {
-    link.value = location.href;
+    link.value = url;
     link.hidden = false;
     link.focus();
     link.select();

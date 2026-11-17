@@ -10,21 +10,27 @@
   </head>
   <body>
     <main id="launch" class="launch" aria-labelledby="launch-title">
-      <div class="launch-content">
-        <p class="launch-team">Stanford SSI · CubeSat imaging</p>
+      <header class="launch-header">
         <h1 id="launch-title">Field of View</h1>
-        <p id="launch-note" role="status">Open on a laptop or desktop with WebGPU to run the simulator.</p>
-        <div class="launch-actions" hidden>
-          <button type="button" id="copy-link">Copy simulator link</button>
-          <button type="button" id="try-simulator">Try on this device</button>
-        </div>
+        <span class="launch-team">Stanford SSI</span>
+        <button type="button" id="share-link" aria-label="Share simulator link" title="Share simulator link" hidden>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m-4 4 4-4 4 4M5 13v7h14v-7"/></svg>
+        </button>
+        <span id="share-status" role="status"></span>
         <input id="share-url" aria-label="Simulator link" type="url" readonly hidden />
-        <details id="launch-detail" hidden><summary>Technical details</summary><p></p></details>
-      </div>
+      </header>
       <figure id="launch-photo" hidden>
         <img width="640" height="640" alt="Simulated overhead view of Stanford and the southern San Francisco Bay" />
-        <figcaption><span>Stanford · simulated daylight pass</span><span>550 km / 100 mm</span></figcaption>
+        <figcaption>
+          <span class="launch-location">Stanford</span>
+          <span class="launch-exposure">Simulated daylight pass<br>550 km · 100 mm</span>
+        </figcaption>
       </figure>
+      <div class="launch-content">
+        <p id="launch-note" role="status">Open on a laptop or desktop with WebGPU to run the simulator.</p>
+        <button type="button" id="try-simulator" hidden>Try on this device</button>
+        <details id="launch-detail" hidden><summary>Technical details</summary><p></p></details>
+      </div>
     </main>
     <div id="root"></div>
     <script type="module" src="/src/startup/launch.ts"></script>
