@@ -1,7 +1,7 @@
 import { getSensor, SENSOR_PROFILES } from '../sim';
 import type { CameraConfig, CameraId, Lens, Pointing, Projection, Scenario, Vec3 } from '../sim';
-import { NumberField, SelectField } from './fields';
-import { editCamera } from '../sim/camera-edit';
+import { fmt, NumberField, SelectField } from './fields';
+import { editCamera, wideMountBodyYM } from '../sim/camera-edit';
 
 type InspectorProps = {
   section: 'optics' | 'orbit' | 'geometry';
@@ -104,19 +104,34 @@ const MOUNT_AXES = ['X', 'Y', 'Z'] as const;
 
 function Geometry({ camera, scenario, onChange, onCameraChange }: CameraSettings) {
   const body = scenario.body;
+  const wideId = camera.id === 'main' ? null : camera.id;
+  const nominalY = wideId ? wideMountBodyYM(wideId, body.depthM) : 0;
+  const offsetMm = (camera.positionBodyM[1] - nominalY) * Math.sign(nominalY) * 1_000;
+  const standOffMm = Number(offsetMm.toFixed(1)) || 0;
+  const standOffSliderMm = Math.max(0, Math.min(10, standOffMm));
   const changeBody = (change: Partial<Scenario['body']>) => onChange({ ...scenario, body: { ...body, ...change } });
-  const changePosition = (axis: number, mm: number) => {
+  const changePosition = (axis: number, positionM: number) => {
     const positionBodyM: Vec3 = [...camera.positionBodyM];
-    positionBodyM[axis] = mm / 1000;
+    positionBodyM[axis] = positionM;
     onCameraChange({ positionBodyM });
   };
 
   return <>
     <h2 className="section-heading">{camera.id === 'main' ? 'Main camera' : '360° pair'} mount</h2>
     {camera.id !== 'main' && <p className="note">The opposite mount follows these edits, rotated 180° around body Z.</p>}
+    {wideId && <>
+      <label className="select-field">
+        <span>Extra stand-off · {fmt(standOffMm, 1)} mm</span>
+        <input type="range" min={0} max={10} step={0.1} value={standOffSliderMm}
+          aria-label="Extra stand-off" aria-valuetext={`${fmt(standOffSliderMm, 1)} mm`}
+          aria-describedby="wide-stand-off-help"
+          onChange={event => changePosition(1, wideMountBodyYM(wideId, body.depthM, event.currentTarget.valueAsNumber))} />
+      </label>
+      <p className="note" id="wide-stand-off-help">Increasing stand-off moves both cameras outward from their nominal mounts.</p>
+    </>}
     <div className="field-grid">
       {MOUNT_AXES.map((axis, i) => <NumberField key={axis} label={`Body ${axis}`} unit="mm" value={camera.positionBodyM[i] * 1000}
-        min={-10000} max={10000} digits={2} onChange={mm => changePosition(i, mm)} />)}
+        min={-10000} max={10000} digits={2} onChange={mm => changePosition(i, mm / 1000)} />)}
       {camera.id !== 'main' && MOUNT_ANGLES.map(([key, label]) => <NumberField key={key} label={label} unit="°" value={camera[key]}
         min={-360} max={360} onChange={value => onCameraChange({ [key]: value })} />)}
       <NumberField label="Housing diameter" unit="mm" value={camera.housingDiameterMm} min={0.1} max={1000} onChange={housingDiameterMm => onCameraChange({ housingDiameterMm })} />
