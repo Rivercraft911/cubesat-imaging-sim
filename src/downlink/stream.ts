@@ -110,7 +110,12 @@ export class DownlinkStream {
   }
 
   recordOutageLoss(): void {
-    this.counters.outageDrops++
+    this.recordLinkLoss('outage')
+  }
+
+  recordLinkLoss(reason: 'queue' | 'outage'): void {
+    if (reason === 'queue') this.counters.queueDrops++
+    else this.counters.outageDrops++
     this.#sender.lose()
   }
 
@@ -193,8 +198,7 @@ export class DownlinkStream {
     } else if (result === 'outage') {
       this.recordOutageLoss()
     } else {
-      this.counters.queueDrops++
-      this.#sender.lose()
+      this.recordLinkLoss('queue')
     }
   }
 

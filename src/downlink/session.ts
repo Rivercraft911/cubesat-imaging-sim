@@ -1,4 +1,4 @@
-import { LinkTimeline } from './channel'
+import { LinkTimeline, validateLinkOptions, type MutableLinkOptions } from './channel'
 import { probeDownlink, type DownlinkSupport, type SupportedStream } from './codec'
 import { DownlinkStream, type StreamPacket } from './stream'
 import type { DownlinkCallbacks, DownlinkConfig, DownlinkStats, StreamSpec } from './types'
@@ -48,6 +48,19 @@ class ActiveDownlink {
     const now = performance.now()
     for (const packet of this.#link.setOutage(active, this.#relative(now))) {
       packet.payload.stream.recordOutageLoss()
+    }
+    this.#trackOutage(now)
+    this.#scheduleDelivery()
+  }
+
+  setLinkOptions(options: MutableLinkOptions): void {
+    if (!this.#active) return
+    const now = performance.now()
+    this.#receiveDue(now)
+    if (!this.#active) return
+    for (const loss of this.#link.setOptions(options, this.#relative(now))) {
+      loss.delivery.payload.stream.recordLinkLoss(loss.reason)
+      loss.delivery.payload.stream.requestKeyframe()
     }
     this.#trackOutage(now)
     this.#scheduleDelivery()
@@ -189,6 +202,7 @@ export class DownlinkSession {
   #probe?: AbortController
   #manualOutage = false
   #capturePending = false
+  #linkOptions?: MutableLinkOptions
 
   constructor(callbacks: DownlinkCallbacks) {
     this.#callbacks = callbacks
@@ -203,14 +217,20 @@ export class DownlinkSession {
     const probe = new AbortController()
     this.#probe = probe
     const settings = { ...config, outages: config.outages?.map(outage => ({ ...outage })) }
+    this.#linkOptions = {
+      linkBitrateBps: config.linkBitrateBps,
+      propagationMs: config.propagationMs,
+      maxQueueMs: config.maxQueueMs,
+    }
     try {
+      validateLinkOptions(this.#linkOptions)
       if (!Number.isFinite(settings.keyIntervalMs) || settings.keyIntervalMs <= 0) {
         throw new RangeError('Keyframe interval must be positive and finite.')
       }
       const support = await probeDownlink(settings, probe.signal)
       probe.signal.throwIfAborted()
       if (!support.supported) return support
-      const run = new ActiveDownlink(settings, support.streams, {
+      const run = new ActiveDownlink({ ...settings, ...this.#linkOptions }, support.streams, {
         ...this.#callbacks,
         getFrame: (stream, ptsUs) => this.#getFrame(stream, ptsUs),
         onError: error => {
@@ -234,6 +254,13 @@ export class DownlinkSession {
 
   update(config: DownlinkConfig): Promise<DownlinkSupport> {
     return this.start(config)
+  }
+
+  /** Change transport service without replacing encoders, decoders or capture. */
+  setLinkOptions(options: Pick<DownlinkConfig, 'linkBitrateBps' | 'propagationMs' | 'maxQueueMs'>): void {
+    validateLinkOptions(options)
+    this.#active?.setLinkOptions(options)
+    this.#linkOptions = { ...options }
   }
 
   setOutage(active: boolean): void {

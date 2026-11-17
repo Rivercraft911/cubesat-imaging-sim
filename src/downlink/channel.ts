@@ -19,26 +19,39 @@ export type LinkAdmission<T> =
   | { accepted: true; delivery: LinkDelivery<T> }
   | { accepted: false; reason: 'queue' | 'outage' }
 
+export type MutableLinkOptions = Pick<LinkOptions, 'linkBitrateBps' | 'propagationMs' | 'maxQueueMs'>
+export interface LinkLoss<T> {
+  delivery: LinkDelivery<T>
+  reason: 'queue' | 'outage'
+}
+
+interface ScheduledDelivery<T> extends LinkDelivery<T> {
+  /** Remaining bits at startsAtMs, rebased whenever the capacity changes. */
+  remainingBits: number
+  startsAtMs: number
+}
+
+export function validateLinkOptions(options: MutableLinkOptions): void {
+  if (!Number.isFinite(options.linkBitrateBps) || options.linkBitrateBps <= 0)
+    throw new RangeError('Link rate must be positive and finite.')
+  if (!Number.isFinite(options.propagationMs) || options.propagationMs < 0)
+    throw new RangeError('Propagation delay must be nonnegative and finite.')
+  if (!Number.isFinite(options.maxQueueMs) || options.maxQueueMs <= 0)
+    throw new RangeError('Queue service limit must be positive and finite.')
+}
+
 const MAX_BUFFERED_CHUNKS = 256
 
 /** Single FIFO for all streams. Callers supply monotonic time in milliseconds for live runs or deterministic replay. */
 export class LinkTimeline<T> {
-  readonly #options: LinkOptions
+  #options: MutableLinkOptions
   readonly #outages: readonly LinkOutage[]
-  readonly #pending: LinkDelivery<T>[] = []
+  readonly #pending: ScheduledDelivery<T>[] = []
   #manualOutage = false
   #bufferedBytes = 0
 
   constructor(options: LinkOptions) {
-    if (!Number.isFinite(options.linkBitrateBps) || options.linkBitrateBps <= 0) {
-      throw new RangeError('Link rate must be positive and finite.')
-    }
-    if (!Number.isFinite(options.propagationMs) || options.propagationMs < 0) {
-      throw new RangeError('Propagation delay must be nonnegative and finite.')
-    }
-    if (!Number.isFinite(options.maxQueueMs) || options.maxQueueMs <= 0) {
-      throw new RangeError('Queue service limit must be positive and finite.')
-    }
+    validateLinkOptions(options)
     this.#options = { ...options }
     this.#outages = (options.outages ?? [])
       .map(outage => {
@@ -49,6 +62,52 @@ export class LinkTimeline<T> {
         return { ...outage }
       })
       .sort((a, b) => a.startMs - b.startMs)
+  }
+
+  /** Capacity changes apply only to unsent bits. Propagating access units retain
+   * their original timing. Delivery remains ordered if propagation is reduced.
+   * Tail-drop keeps every retained stream's decoder dependency prefix intact. */
+  setOptions(options: MutableLinkOptions, nowMs: number): LinkLoss<T>[] {
+    validateLinkOptions(options)
+    if (!Number.isFinite(nowMs) || nowMs < 0)
+      throw new RangeError('Link update time must be nonnegative and finite.')
+    const previousRate = this.#options.linkBitrateBps
+    let finish = nowMs, arrival = nowMs
+    let dropReason: LinkLoss<T>['reason'] | undefined
+    const dropped: LinkLoss<T>[] = []
+    let retained = 0
+    for (const packet of this.#pending) {
+      if (packet.finishedAtMs <= nowMs) {
+        arrival = Math.max(arrival, packet.arrivesAtMs)
+        this.#pending[retained++] = packet
+        continue
+      }
+      // This calculation happens before rebasing, so rapid rate changes never
+      // serialize a previously sent bit a second time.
+      const remaining = Math.max(0, packet.remainingBits
+        - Math.max(0, nowMs - packet.startsAtMs) * previousRate / 1_000)
+      const nextFinish = finish + remaining * 1_000 / options.linkBitrateBps
+      if (!dropReason) {
+        if (this.isOutage(nowMs) || this.#outages.some(outage =>
+          outage.startMs < nextFinish && finish < outage.endMs)) dropReason = 'outage'
+        else if (nextFinish - nowMs > options.maxQueueMs) dropReason = 'queue'
+      }
+      if (dropReason) {
+        dropped.push({ delivery: packet, reason: dropReason })
+        this.#bufferedBytes -= packet.bytes
+        continue
+      }
+      packet.remainingBits = remaining
+      packet.startsAtMs = finish
+      packet.finishedAtMs = nextFinish
+      packet.arrivesAtMs = Math.max(arrival, nextFinish + options.propagationMs)
+      finish = nextFinish
+      arrival = packet.arrivesAtMs
+      this.#pending[retained++] = packet
+    }
+    this.#pending.length = retained
+    this.#options = { ...options }
+    return dropped
   }
 
   get nextArrivalMs(): number | undefined {
@@ -87,12 +146,15 @@ export class LinkTimeline<T> {
     if (this.#outages.some(outage => outage.startMs < finishedAtMs && startsAtMs < outage.endMs)) {
       return { accepted: false, reason: 'outage' }
     }
-    const delivery: LinkDelivery<T> = {
+    const delivery: ScheduledDelivery<T> = {
+      startsAtMs,
+      remainingBits: bytes * 8,
       payload,
       bytes,
       enqueuedAtMs: nowMs,
       finishedAtMs,
-      arrivesAtMs: finishedAtMs + this.#options.propagationMs,
+      arrivesAtMs: Math.max(finishedAtMs + this.#options.propagationMs,
+        this.#pending.at(-1)?.arrivesAtMs ?? nowMs),
     }
     this.#pending.push(delivery)
     this.#bufferedBytes += bytes
