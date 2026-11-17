@@ -305,13 +305,19 @@ function mergeParts(group: THREE.Group) {
     if (!(object instanceof THREE.Mesh)) return;
     const material = object.material as THREE.Material;
     const parts = batches.get(material) ?? [];
-    const geometry = object.geometry.index ? object.geometry.toNonIndexed() : object.geometry.clone();
+    const geometry = object.geometry;
     parts.push(geometry.applyMatrix4(object.matrixWorld));
     batches.set(material, parts);
-    object.geometry.dispose();
   });
   group.clear();
   for (const [material, parts] of batches) {
+    // Preserve vertex reuse on lenses and hardware. Three requires consistent
+    // indexing within a batch, including any non-indexed extrusions or bevels.
+    if (parts.some(part => part.index)) {
+      for (const part of parts) {
+        if (!part.index) part.setIndex(Array.from({ length: part.getAttribute('position').count }, (_, i) => i));
+      }
+    }
     const merged = mergeGeometries(parts);
     parts.forEach(part => part.dispose());
     if (!merged) continue;
