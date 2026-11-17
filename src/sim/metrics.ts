@@ -1,7 +1,7 @@
-import { axisFovDeg, cameraPose, projectPoint, rayForPixel, usableRadiusMm } from './camera';
+import { axisFovDeg, cameraPose, projectPoint, projectVisibleGroundPoint, rayForPixel, usableRadiusMm } from './camera';
 import { getSensor } from './catalog';
 import { intersectEarth } from './earth';
-import { clamp, DEG, dot, length, normalize, rotate, scale, sub, TAU } from './math';
+import { clamp, DEG, dot, length, normalize, rotate, sub, TAU } from './math';
 import { sampleState } from './orbit';
 import type { CameraConfig, CameraId, CameraMetrics, Scenario, SensorProfile, Vec3 } from './types';
 
@@ -77,11 +77,7 @@ export function computeMetrics(scenario: Scenario, cameraId: CameraId, timeS = 0
   const radiusPx = usableRadiusMm(camera.lens) / pitchMm;
   const gsdXM = center ? onePixelGsd(groundAt, u, v, 1, 0) : NaN;
   const gsdYM = center ? onePixelGsd(groundAt, u, v, 0, 1) : NaN;
-  const toTarget = sub(sample.targetEcefM, pose.positionEcefM);
-  const targetRange = length(toTarget);
-  const targetRayHit = intersectEarth(pose.positionEcefM, scale(toTarget, 1 / targetRange));
-  const targetClear = !targetRayHit || length(sub(targetRayHit, pose.positionEcefM)) >= targetRange - 0.1;
-  const targetPixel = targetClear ? projectPoint(camera, sensor, pose, sample.targetEcefM) : null;
+  const targetPixel = projectVisibleGroundPoint(camera, sensor, pose, sample.targetEcefM);
   const forward = rotate(pose.qEcefFromCamera, [0, 0, 1]);
   const offNadirCos = -dot(forward, normalize(pose.positionEcefM));
   const projectedEarthCenter = projectPoint(camera, sensor, pose, [0, 0, 0]);

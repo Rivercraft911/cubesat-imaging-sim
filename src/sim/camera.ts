@@ -1,4 +1,5 @@
-import { add, axisRotation, basisRotation, composeRotation, DEG, inverseRotation, normalize, rotate, sub } from './math';
+import { intersectEarth } from './earth';
+import { add, axisRotation, basisRotation, composeRotation, DEG, inverseRotation, length, normalize, rotate, scale, sub } from './math';
 import type { CameraConfig, CameraPose, Lens, SensorProfile, SimulationSample, Vec3 } from './types';
 
 const FRONT_CAMERA = basisRotation([1, 0, 0], [0, 0, -1], [0, 1, 0]);
@@ -84,4 +85,19 @@ export function projectPoint(
     return null;
   }
   return [u, v];
+}
+
+/** Native projection with WGS84 Earth occlusion and sensor/lens clipping.
+ * The 0.1 m intersection tolerance prevents roundoff hiding surface landmarks.
+ * Terrain, structures and spacecraft occlusion are not modeled here.
+ */
+export function projectVisibleGroundPoint(
+  camera: CameraConfig, sensor: SensorProfile, pose: CameraPose, pointEcefM: Vec3,
+): [number, number] | null {
+  const toPoint = sub(pointEcefM, pose.positionEcefM);
+  const rangeM = length(toPoint);
+  if (!(rangeM > 0)) return null;
+  const hit = intersectEarth(pose.positionEcefM, scale(toPoint, 1 / rangeM));
+  if (hit && length(sub(hit, pose.positionEcefM)) < rangeM - 0.1) return null;
+  return projectPoint(camera, sensor, pose, pointEcefM);
 }
