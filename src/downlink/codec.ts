@@ -10,6 +10,18 @@ export type DownlinkSupport =
   | { supported: false; reason: string }
 
 const PROBE_TIMEOUT_MS = 5_000
+const MAX_ENCODE_DIMENSION = 8_192
+const MAX_ENCODE_PIXELS = 16_777_216
+
+/** Bound the GPU capture/readback and I420 probe frame before querying a codec. */
+export function downlinkFrameSizeError({ id, width, height }: Pick<StreamSpec, 'id' | 'width' | 'height'>): string | undefined {
+  if (![width, height].every(value => Number.isInteger(value) && value >= 2 && value % 2 === 0)) {
+    return `${id} encode dimensions must be positive even pixel counts.`
+  }
+  if (width > MAX_ENCODE_DIMENSION || height > MAX_ENCODE_DIMENSION || width * height > MAX_ENCODE_PIXELS) {
+    return `${id} ${width} × ${height} exceeds the downlink limit of 8,192 px per side or 16,777,216 px per frame. Select a lower encode height or a different sensor aspect ratio.`
+  }
+}
 
 // ITU-T H.264 (08/2024), Table A-1. These levels cover the supported presets and frame rates.
 function avcLevel({ width, height }: StreamSpec, fps: number): string {
@@ -184,8 +196,9 @@ export async function probeDownlink(config: DownlinkConfig, signal?: AbortSignal
     return { supported: false, reason: 'The main sensor aspect ratio must be positive and finite.' }
   }
   const specs = buildStreams(config)
-  if (specs.some(stream => !Number.isSafeInteger(stream.width))) {
-    return { supported: false, reason: 'The selected sensor aspect ratio and encode height exceed supported frame dimensions.' }
+  for (const stream of specs) {
+    const reason = downlinkFrameSizeError(stream)
+    if (reason) return { supported: false, reason }
   }
   if (!specs.every(stream => Number.isSafeInteger(stream.bitrateBps) && stream.bitrateBps > 0)) {
     return { supported: false, reason: 'Encoder targets must be positive integer bit rates for every selected stream.' }

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { getSensor } from '../sim/catalog'
 import { KeyRecovery, LinkTimeline } from './channel'
+import { downlinkFrameSizeError, probeDownlink } from './codec'
 import { buildStreams, DEFAULT_DOWNLINK_CONFIG } from './types'
 
 describe('video program', () => {
@@ -51,6 +52,42 @@ describe('video program', () => {
       { id: 'wideA', width: 1080, height: 1080, bitrateBps: 1_000_000 },
       { id: 'wideB', width: 1080, height: 1080, bitrateBps: 1_000_001 },
     ])
+  })
+})
+
+describe('downlink allocation limits', () => {
+  it('accepts the full 2160p onboard panorama and the exact frame limits', () => {
+    const [panorama] = buildStreams({ ...DEFAULT_DOWNLINK_CONFIG, program: '360', resolution: 2160 })
+    expect(downlinkFrameSizeError(panorama)).toBeUndefined()
+    expect(downlinkFrameSizeError({ id: 'main', width: 8192, height: 2048 })).toBeUndefined()
+  })
+
+  it('rejects custom sensor ratios that exceed either limit independently', () => {
+    const [wide] = buildStreams({ ...DEFAULT_DOWNLINK_CONFIG, mainAspectRatio: 8 })
+    const [large] = buildStreams({ ...DEFAULT_DOWNLINK_CONFIG, mainAspectRatio: 3.75, resolution: 2160 })
+    expect(downlinkFrameSizeError(wide)).toContain('8640 × 1080')
+    expect(downlinkFrameSizeError(large)).toContain('8100 × 2160')
+  })
+
+  it('rejects an extreme custom sensor before querying WebCodecs', async () => {
+    const isConfigSupported = vi.fn()
+    vi.stubGlobal('VideoEncoder', { isConfigSupported })
+    vi.stubGlobal('VideoDecoder', class {})
+    vi.stubGlobal('VideoFrame', class {})
+    try {
+      const result = await probeDownlink({
+        ...DEFAULT_DOWNLINK_CONFIG,
+        mainAspectRatio: 16_384,
+        resolution: 2160,
+      })
+      expect(result).toMatchObject({
+        supported: false,
+        reason: expect.stringContaining('35389440 × 2160'),
+      })
+      expect(isConfigSupported).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
 

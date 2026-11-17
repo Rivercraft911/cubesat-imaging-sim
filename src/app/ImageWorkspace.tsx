@@ -75,7 +75,7 @@ export function ImageWorkspace({
   return (
     <section className="image-workspace" aria-label="Viewfinder">
       <div className={`image-stage ${!received && view === 'image' ? 'native' : ''}`} ref={host}>
-        <canvas ref={canvas} aria-hidden={received && !receivedPanorama} aria-label={`${camera.name} simulated sensor image`} />
+        <canvas ref={canvas} style={{ visibility: received && (!receivedPanorama || !downlink.receiverHasFrame) ? 'hidden' : undefined }} aria-label={receivedPanorama ? 'Decoded downlink panorama' : `${camera.name} simulated sensor image`} />
         {received && <>
           {!receivedPanorama && <canvas ref={downlink.receiverCanvas} className="received-canvas" aria-label="Decoded downlink image" />}
           <div className="receive-label" role="status">
