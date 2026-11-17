@@ -70,12 +70,13 @@ window.addEventListener('pageshow', event => {
 });
 
 const compactTouchScreen = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) <= 600;
-if (!hasGpu) {
-  preview('This browser doesn’t provide WebGPU. Open this link on a laptop or desktop with WebGPU to run the simulator.');
-} else if (sessionWasInterrupted()) {
+if (hasGpu && sessionWasInterrupted()) {
   preview('The last simulator session was interrupted. Open this link on a laptop or desktop with WebGPU, or try again here.');
 } else if (prefersPreview(navigator, compactTouchScreen)) {
-  preview('For the full-resolution simulator, open this link on a laptop or desktop with WebGPU. Running it here may close the tab.');
+  preview('Please open this fellow up on a laptop or something that can handle some hefty WebGPU. The full sim can crash a phone tab… so here’s Stanford in the meantime.',
+    hasGpu ? undefined : 'This browser doesn’t provide WebGPU.');
+} else if (!hasGpu) {
+  preview('This browser doesn’t provide WebGPU. Open this link on a laptop or desktop with WebGPU to run the simulator.');
 } else {
   void start();
 }
