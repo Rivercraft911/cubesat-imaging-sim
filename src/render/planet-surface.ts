@@ -3,13 +3,13 @@ import {
   Fn,
   mix,
   positionGeometry,
-  texture,
   vec2,
   vec3,
   vec4,
   wgslFn,
 } from "three/tsl";
 import type { makeSensorMaterial } from "./sensor-material";
+import { earthDayColor, earthSurfaceCoordinates } from "./earth-surface";
 import { surfaceUVWgsl } from "./projection";
 const surfaceUV = wgslFn(surfaceUVWgsl);
 
@@ -28,23 +28,10 @@ export function makePlanetSurface(
       positionGeometry.z.negate(),
       positionGeometry.y.mul(0.9966471893352525),
     );
-    const coords = vec4(surfaceUV(ecef) as ReturnType<typeof vec4>);
-    const base = texture(day, coords.xy).rgb.toVar();
-    const geographic = coords.xy.mul(vec2(360, 180)).sub(vec2(180, 90));
-    const southwest = vec2(-130.66666666666666, 29.1),
-      northeast = vec2(-113.6, 46.166666666666664);
-    const regionalUV = geographic.sub(southwest).div(northeast.sub(southwest));
-    const geographicEdge = geographic
-      .sub(southwest)
-      .min(northeast.sub(geographic));
-    base.assign(
-      mix(
-        base,
-        texture(western, regionalUV).rgb,
-        geographicEdge.x.min(geographicEdge.y).smoothstep(0, 0.25),
-      ),
-    );
-    const mercator = coords.zw.sub(sensor.u.referenceMercator);
+    const coords = earthSurfaceCoordinates(ecef);
+    const base = earthDayColor(day, western, coords).toVar();
+    const mercator = vec4(surfaceUV(ecef) as ReturnType<typeof vec4>)
+      .zw.sub(sensor.u.referenceMercator);
     const layers = [
       {
         node: sensor.baseNode,
