@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "revision": "nasa-blue-marble-cloud-2001-west-coast-soft-toe-v2",
-  "file": "earth-clouds-western-us.png",
+  "file": "earth-clouds-western-us-v2.png",
   "publisher_page": "https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/",
   "source_url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud.W.2001210.21600x21600.png",
   "credit": "NASA Goddard Space Flight Center / Reto Stöckli; compositing enhancements by Robert Simmon",

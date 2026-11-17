@@ -20,7 +20,7 @@ export async function loadEarthTextures() {
     load("earth-clouds.webp"),
     load("west-coast-regional.webp"),
     load("earth-night-western-us.webp"),
-    load("earth-clouds-western-us.png"),
+    load("earth-clouds-western-us-v2.png"),
   ]);
   const failure = loaded.find((result) => result.status === "rejected");
   if (failure?.status === "rejected") {

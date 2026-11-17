@@ -18,7 +18,9 @@ SOURCE_BOUNDS = {"west": -180, "south": -90, "east": 0, "north": 90}
 SAMPLES_PER_DEGREE = SOURCE_SIZE[0] // 180
 # Native pixel edges (left, top, right, bottom) matching the West Coast imagery.
 CROP = (5850, 4560, 7920, 8040)
-OUTPUT = Path(__file__).resolve().parents[1] / "public" / "assets" / "earth-clouds-western-us.png"
+OUTPUT_DIR = Path(__file__).resolve().parents[1] / "public" / "assets"
+OUTPUT = OUTPUT_DIR / "earth-clouds-western-us-v2.png"
+METADATA = OUTPUT_DIR / "earth-clouds-western-us.json"
 
 
 def soft_toe(code):
@@ -90,7 +92,7 @@ def main():
         "software": {"pillow": pillow_version, "zlib": features.version("zlib")},
     }
     OUTPUT.write_bytes(pixels)
-    OUTPUT.with_suffix(".json").write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    METADATA.write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Wrote {OUTPUT.name} ({size[0]} × {size[1]}, {len(pixels):,} bytes)")
 
 
