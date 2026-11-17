@@ -49,6 +49,7 @@ export function makeSensorMaterial(
     referenceMercator: uniform(new THREE.Vector2()),
     bounds: uniform(new THREE.Vector4(-1, -1, 1, 1)),
     hasGround: uniform(0),
+    groundWeight: uniform(1),
     groundFade: uniform(new THREE.Vector2(0.004, 0.004)),
     baseBounds: uniform(new THREE.Vector4(-1, -1, 1, 1)),
     baseFade: uniform(new THREE.Vector2(0.004, 0.004)),
@@ -108,7 +109,7 @@ export function makeSensorMaterial(
         {
           node: groundNode,
           bounds: u.bounds,
-          active: u.hasGround,
+          active: u.hasGround.mul(u.groundWeight),
           fade: u.groundFade,
         },
       ].map((layer) => {

@@ -42,7 +42,7 @@ export function makePlanetSurface(
       {
         node: sensor.groundNode,
         bounds: sensor.u.bounds,
-        active: sensor.u.hasGround,
+        active: sensor.u.hasGround.mul(sensor.u.groundWeight),
         fade: sensor.u.groundFade,
       },
     ];

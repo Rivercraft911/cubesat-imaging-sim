@@ -10,6 +10,7 @@ import {
   getSensor,
   cameraPose,
   sampleState,
+  computeMetrics,
 } from "../sim";
 import type { CameraConfig, CameraId, Scenario } from "../sim/types";
 import type {
@@ -27,6 +28,7 @@ import { createSpaceContext } from "./space-context";
 import { installInspectionControls } from "./inspection-controls";
 import { createPanoramaViewer } from "./panorama-viewer";
 import { createGroundLayers } from "./ground-layers";
+import { aerialArrivalWeight, isAerialImage, settledAerialWeight } from "./aerial-blend";
 import { makePlanetSurface } from "./planet-surface";
 import { validateNativeAllocation } from "./allocation";
 import { installGpuDiagnostics } from "./gpu-diagnostics";
@@ -102,6 +104,29 @@ export async function createImagingEngine(
       panoramaVisited = false;
     let currentDetail: GroundImage | null = null;
     let currentBase: GroundImage | null = null;
+    let aerialArrivedAtMs = 0;
+    let aerialArrivalStartWeight = 0;
+    let blendGeometry: { scenario: Scenario; timeS: number; detail: GroundImage; base: GroundImage | null; weight: number } | null = null;
+    function updateGroundWeight(settled = false) {
+      let weight = 1;
+      if (currentDetail && isAerialImage(currentDetail.id)) {
+        if (!blendGeometry || blendGeometry.scenario !== scenario || blendGeometry.timeS !== timeS || blendGeometry.detail !== currentDetail || blendGeometry.base !== currentBase) {
+          const footprint = shotBounds(scenario, timeS);
+          const satelliteSpacing = currentBase && contains(currentBase.boundsMercator, footprint)
+            ? currentBase.sourceResolutionM : undefined;
+          blendGeometry = { scenario, timeS, detail: currentDetail, base: currentBase,
+            weight: settledAerialWeight(currentDetail.boundsMercator, footprint, computeMetrics(scenario, "main", timeS).gsdM, satelliteSpacing) };
+        }
+        const support = blendGeometry.weight;
+        const arrival = aerialArrivalWeight(performance.now() - aerialArrivedAtMs);
+        // Keep continuity across NAIP replacements without retaining another texture.
+        weight = settled ? support : Math.min(support, aerialArrivalStartWeight + (support - aerialArrivalStartWeight) * arrival);
+      }
+      if (sensor.u.groundWeight.value !== weight) {
+        sensor.u.groundWeight.value = weight;
+        dirty = true;
+      }
+    }
     let sceneRevision = 0,
       groundRevision = 0;
     const space = initialization.own(
@@ -259,7 +284,7 @@ export async function createImagingEngine(
     }
 
     function ensureNative(id: CameraId) {
-      const key = `${sceneRevision}:${groundRevision}:${sample.timeS}`;
+      const key = `${sceneRevision}:${groundRevision}:${sample.timeS}:${sensor.u.groundWeight.value}`;
       const target = nativeTargets[id];
       if (nativeKeys.get(id) === key) return target;
       const s = sensorInfo(config(id));
@@ -381,6 +406,7 @@ export async function createImagingEngine(
             throw new Error("Ground imagery changed during capture. Capture both lenses again.");
           }
           const detailEnabled = sensor.u.hasGround.value;
+          const displayGroundWeight = sensor.u.groundWeight.value;
           const displayScenario = scenario;
           const displaySample = sample,
             displayTime = timeS;
@@ -398,6 +424,9 @@ export async function createImagingEngine(
               timeS = pts / 1e6;
               sample = sampleState(scenario, timeS);
             }
+            // Live PTS frames follow the viewfinder fade. Still exports and
+            // frozen studies use only deterministic footprint/GSD support.
+            updateGroundWeight(pts === undefined || study !== undefined);
             updateWorld();
             drawSource();
           } finally {
@@ -406,6 +435,7 @@ export async function createImagingEngine(
               scenario = displayScenario;
               sceneRevision++;
             }
+            sensor.u.groundWeight.value = displayGroundWeight;
             sample = displaySample;
             timeS = displayTime;
           }
@@ -448,8 +478,12 @@ export async function createImagingEngine(
       getGroundRevision: () => groundRevision,
       setGroundImage(image) {
         if (image === currentDetail) return;
+        const wasAerial = currentDetail && isAerialImage(currentDetail.id);
+        const previousWeight = sensor.u.groundWeight.value;
         groundLayers.setDetail(image);
         currentDetail = image;
+        aerialArrivalStartWeight = wasAerial ? previousWeight : 0;
+        aerialArrivedAtMs = performance.now();
         groundRevision++;
         dirty = true;
       },
@@ -528,6 +562,7 @@ export async function createImagingEngine(
         dirty = true;
       },
       render() {
+        if (!captures.busy) updateGroundWeight();
         if (view === "space") space.updateControls();
         if (dirty) {
           try {
