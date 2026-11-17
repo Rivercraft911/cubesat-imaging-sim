@@ -2,13 +2,20 @@ import type { RefObject } from 'react';
 import { buildStreams } from '../downlink';
 import type { ImageryProgress } from '../imagery/provider';
 import type { EngineStatus, GroundImage, RenderView } from '../render';
-import type { CameraConfig, CameraMetrics, SensorProfile, SimulationSample, Target } from '../sim';
+import { mainImageModel, type CameraConfig, type CameraMetrics, type SensorProfile, type SimulationSample, type Target } from '../sim';
 import { fmt } from './fields';
 import { Icon } from './Icon';
+import { MAIN_IMAGE_MODEL_LABELS } from './TwilightSettings';
 import type { useDownlink } from './useDownlink';
 
 type Downlink = ReturnType<typeof useDownlink>;
 export type Feed = 'source' | 'received';
+
+const MAIN_LIGHTING_NOTES = {
+  pass: 'Main and 360° share sunlight, clouds and atmospheric scattering. Bay Area city lights come from a 500 m composite.',
+  reference: 'The daylight reference keeps the lighting from the source imagery.',
+  twilight: 'Twilight brightness uses the local Sun angle and the diffuse light and camera response specified in Camera settings.',
+};
 
 function ReceiverCaption({ downlink }: { downlink: Downlink }) {
   const streams = buildStreams(downlink.activeConfig ?? downlink.config).filter(stream => (
@@ -62,6 +69,7 @@ export function ImageWorkspace({
   setQuality: (quality: 'high' | 'low') => void;
   resetSpaceView: () => void;
 }) {
+  const model = view === 'image' && camera.id === 'main' ? mainImageModel(camera) : undefined;
   const received = feed === 'received' && linkActive;
   const inspectionMode = status.inspectionMode ?? inspection;
   const receivedPanorama = received && downlink.receiver === '360';
@@ -88,9 +96,7 @@ export function ImageWorkspace({
       </div>
       <div className="target-heading">
         <span className="target-label">{target.name}</span>
-        {view === 'image' && camera.id === 'main' && <small className="image-model-label">
-          {camera.exposureStudy?.enabled ? 'Exposure study' : 'Daylight reference'}
-        </small>}
+        {!received && model && <small className="image-model-label">{MAIN_IMAGE_MODEL_LABELS[model]}</small>}
       </div>
       <div className="image-tools">
         {view === 'space' && <div className="inspection-buttons"><button onClick={resetSpaceView}>Frame spacecraft</button></div>}
@@ -163,13 +169,7 @@ export function ImageWorkspace({
             {progress.state === 'error' && view !== 'space' && <p>Detail unavailable; retained the loaded imagery.</p>}
             {view === 'image' && <p>Aerial coverage blends over dated satellite imagery. Source detail varies across the frame.</p>}
             {view === 'panorama' && <p>The viewer looks into a 360° image. Export saves a 4096 × 2048 equirectangular PNG; changing the view angle does not change the camera lenses.</p>}
-            <p>{view === 'image' && camera.id === 'main'
-              ? camera.exposureStudy?.enabled
-                ? 'Twilight brightness uses the local Sun angle and the diffuse light and camera response specified in Camera settings.'
-                : sample.sunElevationDeg < 0
-                ? 'The Sun is below the target horizon. This reference preserves the daylight photograph. Choose Twilight exposure study in Camera settings to model this pass.'
-                : 'Source-normalized daylight imagery. Optics are uncalibrated; dimensions are provisional.'
-              : 'Illustrative Sun, cloud and limb lighting. Brightness is not calibrated radiometry.'}</p>
+            {!received && <p>{model ? MAIN_LIGHTING_NOTES[model] : 'Sun, cloud and limb lighting are illustrative.'}</p>}
             {view === 'panorama' && <p>The angular stitch does not correct nearby spacecraft parallax.</p>}
             {view === 'space' && <p>Filled FOV guides show nominal lens coverage. Red sectors mark sampled spacecraft obstruction. Green selection and red obstruction guides are excluded from captures.</p>}
             {status.warnings?.length ? <p>{status.warnings.join(' · ')}</p> : null}

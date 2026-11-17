@@ -60,14 +60,12 @@ export function makeSensorMaterial(
     diffuseFraction: uniform(0),
     // Display crop is expressed in native pixel coordinates, independent of GPU framebuffer size.
     crop: uniform(new THREE.Vector4(0, 0, 3840, 2160)),
-    space: uniform(0),
     showShip: uniform(1),
   };
   const baseNode = texture(ground);
   const groundNode = texture(ground),
     shipNode = cubeTexture(ship);
-  // Compile separate graphs: normalized main imagery must not depend on the
-  // atmospheric LUT pipeline, even when context rendering is unavailable.
+  // Reference imagery and the exposure study use a separate graph from pass lighting.
   const build = (contextual: boolean) => {
     const material = new THREE.MeshBasicNodeMaterial({
       depthTest: false,
@@ -138,7 +136,7 @@ export function makeSensorMaterial(
       base.assign(
         u.detailFiner.greaterThan(0.5).select(baseFirst, detailFirst),
       );
-      // Main imagery retains its photographed, normalized brightness.
+      // The reference model starts at the photographed source brightness.
       const result = hit.w.greaterThan(0).select(base, vec3(0)).toVar();
       if (!contextual) {
         If(u.twilight.greaterThan(0.5), () => {
@@ -192,8 +190,8 @@ export function makeSensorMaterial(
     return material;
   };
   return {
-    material: build(false),
-    wideMaterial: build(true),
+    referenceMaterial: build(false),
+    passMaterial: build(true),
     u,
     groundNode,
     baseNode,

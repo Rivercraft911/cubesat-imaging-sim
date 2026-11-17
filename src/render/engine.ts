@@ -1,3 +1,4 @@
+import { mainImageModel } from "../sim/exposure";
 import * as THREE from "three/webgpu";
 import { contains, shotBounds } from "../imagery/bounds";
 import { bindSensorCamera, bindPanoramaCameras } from "./camera-bindings";
@@ -164,8 +165,8 @@ export async function createImagingEngine(
       space.sensorAerial,
     );
     initialization.defer(() => {
-      sensor.material.dispose();
-      sensor.wideMaterial.dispose();
+      sensor.referenceMaterial.dispose();
+      sensor.passMaterial.dispose();
     });
     const groundLayers = initialization.own(
       createGroundLayers(
@@ -187,7 +188,7 @@ export async function createImagingEngine(
       quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     const quad = new THREE.Mesh(
       initialization.own(new THREE.PlaneGeometry(2, 2)),
-      sensor.material,
+      sensor.referenceMaterial,
     );
     quad.frustumCulled = false;
     quadScene.add(quad);
@@ -276,11 +277,13 @@ export async function createImagingEngine(
     }
     function renderSensorTo(id: CameraId, target: THREE.RenderTarget) {
       const s = configureSensor(id);
+      const camera = config(id);
+      const passLighting = id !== "main" || mainImageModel(camera) === "pass";
       optics.render({
-        material: id === "main" ? sensor.material : sensor.wideMaterial,
+        material: passLighting ? sensor.passMaterial : sensor.referenceMaterial,
         crop: sensor.u.crop.value,
         scenario,
-        camera: config(id),
+        camera,
         sensor: s,
         sample,
         timeS,
@@ -608,8 +611,8 @@ export async function createImagingEngine(
           space.dispose();
           hardware.dispose();
           quad.geometry.dispose();
-          sensor.material.dispose();
-          sensor.wideMaterial.dispose();
+          sensor.referenceMaterial.dispose();
+          sensor.passMaterial.dispose();
           removeGpuDiagnostics();
           stitch.material.dispose();
           optics.dispose();

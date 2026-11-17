@@ -14,7 +14,7 @@ import type {
   SimulationSample,
 } from "../sim";
 import { makePsf } from "./psf";
-import { exposureScale } from "../sim/exposure";
+import { DEFAULT_EXPOSURE_STUDY, exposureScale, mainImageModel } from "../sim/exposure";
 interface NativeOpticsInput {
   material: THREE.MeshBasicNodeMaterial;
   crop: THREE.Vector4;
@@ -124,9 +124,10 @@ export function createOpticsPipeline(
         (-dy * bound) / (6.75 * crop.w),
       );
       psf.exposure.value = 1;
-      const study = c.id === "main" ? c.exposureStudy : undefined;
-      psf.study.value = study?.enabled ? 1 : 0;
-      if (study?.enabled) {
+      const twilight = c.id === "main" && mainImageModel(c) === "twilight";
+      psf.study.value = twilight ? 1 : 0;
+      if (twilight) {
+        const study = c.exposureStudy ?? DEFAULT_EXPOSURE_STUDY;
         psf.response.value.set(exposureScale(c), study.readNoiseElectrons, study.fullWellElectrons, study.gain);
         psf.crop.value.copy(crop);
         psf.seed.value = Math.round(timeS * 1000) % 100_000;

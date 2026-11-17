@@ -1,3 +1,4 @@
+import { DEFAULT_EXPOSURE_STUDY, mainImageModel } from "../sim/exposure";
 import * as THREE from "three/webgpu";
 import {
   cameraPose,
@@ -65,11 +66,10 @@ export function bindSensorCamera(
     (o[2] / 6356752.314245179) ** 2 -
     1;
   sensor.u.localOrigin.value.fromArray(o).sub(sensor.u.groundReference.value);
-  // Source-normalized brightness. Exposure affects the shutter PSF, not invented radiometry.
+  // The optional exposure study applies camera gain after optical filtering.
   sensor.u.exposure.value = 1;
-  sensor.u.twilight.value = c.id === "main" && c.exposureStudy?.enabled ? 1 : 0;
-  sensor.u.diffuseFraction.value = c.exposureStudy?.diffuseFraction ?? 0;
-  sensor.u.space.value = c.id === "main" ? 0 : 1;
+  sensor.u.twilight.value = c.id === "main" && mainImageModel(c) === "twilight" ? 1 : 0;
+  sensor.u.diffuseFraction.value = c.exposureStudy?.diffuseFraction ?? DEFAULT_EXPOSURE_STUDY.diffuseFraction;
   sensor.u.showShip.value = 1;
   sensor.shipNode.value = cube;
   return pose;

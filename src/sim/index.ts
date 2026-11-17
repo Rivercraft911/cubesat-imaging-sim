@@ -7,3 +7,4 @@ export { parseScenario } from './scenario';
 export { inverseRotation, rotate } from './math';
 export type * from './types';
 export { projectStudyLandmark } from './study-landmark';
+export { mainImageModel } from './exposure';

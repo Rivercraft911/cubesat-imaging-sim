@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { computeMetrics, getSensor, projectStudyLandmark, sampleState, type Scenario } from '../sim';
+import { computeMetrics, getSensor, mainImageModel, projectStudyLandmark, sampleState, type Scenario } from '../sim';
 import type { ImagingEngine } from '../render';
 import type { DownlinkConfig } from '../downlink';
 import { decodeComparisonFrame, type ComparisonDecode } from './lens-comparison-codec';
 import { fmt, NumberField } from './fields';
 import { ComparisonFrame } from './ComparisonFrame';
+import { MAIN_IMAGE_MODEL_LABELS } from './TwilightSettings';
 import './lens-comparison.css';
 
 export function withMainFocalLength(scenario: Scenario, focalLengthMm: number): Scenario {
@@ -125,7 +126,7 @@ export function LensComparison({ snapshot, engine, focalLengths, onFocalLengths,
       </article>;
     })}</div>
     <details className="comparison-details"><summary>Capture details</summary>
-      <p>{main.exposureStudy?.enabled ? 'Twilight exposure study' : 'Daylight source reference'} · {sensor.name} · f/{fmt(main.lens.fNumber, 1)} · {fmt(main.exposureMs, 2)} ms.
+      <p>{MAIN_IMAGE_MODEL_LABELS[mainImageModel(main)]} · {sensor.name} · f/{fmt(main.lens.fNumber, 1)} · {fmt(main.exposureMs, 2)} ms.
         Each lens sees the same pass instant with the finest loaded image that covers its footprint.</p>
       <p>{capturedImagery || imageryId || imageryMessage}</p>
       <p>{config.codec.toUpperCase()} · {config.resolution}p · {fmt(config.videoBitrateBps / 1e6, 2)} Mb/s at {config.fps} fps · {fmt(config.linkBitrateBps / 1e6, 2)} Mb/s link.

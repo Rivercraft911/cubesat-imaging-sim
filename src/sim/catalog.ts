@@ -83,7 +83,7 @@ export function createDefaultScenario(): Scenario {
     },
     cameras: [
       {
-        id: 'main', name: 'Main', sensorId: DEFAULT_SENSOR_ID,
+        id: 'main', name: 'Main', sensorId: DEFAULT_SENSOR_ID, mainImageModel: 'pass',
         lens: {
           focalLengthMm: 25, fNumber: 4, projection: 'rectilinear',
           maxFovDeg: 180, imageCircleMm: 11, extraBlurPx: 0,

@@ -1,6 +1,6 @@
 import { getSensor } from './catalog';
 import { sampleState } from './orbit';
-import type { CameraConfig, CameraId, Lens, Scenario, Vec3 } from './types';
+import type { CameraConfig, CameraId, ExposureStudy, Lens, MainImageModel, Scenario, Vec3 } from './types';
 
 function object(value: unknown, field: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -61,13 +61,10 @@ function parseLens(value: unknown): Lens {
 }
 
 const CAMERA_IDS = ['main', 'wideA', 'wideB'] as const;
+const MAIN_IMAGE_MODELS = ['pass', 'reference', 'twilight'] as const;
 
-function parseExposureStudy(value: unknown): CameraConfig['exposureStudy'] {
-  if (value === undefined) return undefined;
-  const study = object(value, 'Exposure study');
-  if (typeof study.enabled !== 'boolean') throw new TypeError('Exposure study enabled must be true or false.');
+function parseExposureStudy(study: Record<string, unknown>): ExposureStudy {
   return {
-    enabled: study.enabled,
     diffuseFraction: number(study.diffuseFraction, 'Diffuse irradiance fraction', 0, 1),
     referenceElectronsPerMs: number(study.referenceElectronsPerMs, 'Reference electrons/ms', 0, 1e9),
     readNoiseElectrons: number(study.readNoiseElectrons, 'Read noise (electrons)', 0, 1e5),
@@ -87,13 +84,24 @@ function parseCamera(value: unknown, customSensor: Scenario['customSensor']): Ca
   const yawDeg = number(camera.yawDeg, 'Camera yaw (deg)', -360, 360);
   const pitchDeg = number(camera.pitchDeg, 'Camera pitch (deg)', -360, 360);
   const rollDeg = number(camera.rollDeg, 'Camera roll (deg)', -360, 360);
+  const study = camera.exposureStudy === undefined ? undefined : object(camera.exposureStudy, 'Exposure study');
+  const legacyEnabled = study?.enabled;
+  if (legacyEnabled !== undefined && typeof legacyEnabled !== 'boolean') {
+    throw new TypeError('Exposure study enabled must be true or false.');
+  }
+  const legacyModel: MainImageModel | undefined =
+    legacyEnabled === undefined ? undefined : legacyEnabled ? 'twilight' : 'reference';
+  const imageModel = camera.mainImageModel === undefined
+    ? legacyModel
+    : choice(camera.mainImageModel, 'Main image model', MAIN_IMAGE_MODELS);
   return {
     id, name: label(camera.name, 'Camera name'), sensorId,
     positionBodyM, lens: parseLens(camera.lens),
     yawDeg: id === 'main' ? 0 : yawDeg,
     pitchDeg: id === 'main' ? 0 : pitchDeg,
     rollDeg: id === 'main' ? 0 : rollDeg,
-    ...(camera.exposureStudy !== undefined ? { exposureStudy: parseExposureStudy(camera.exposureStudy) } : {}),
+    ...(id === 'main' && imageModel !== undefined ? { mainImageModel: imageModel } : {}),
+    ...(study ? { exposureStudy: parseExposureStudy(study) } : {}),
     exposureMs: number(camera.exposureMs, 'Exposure (ms)', 0, 100_000),
     jitterArcsec: number(camera.jitterArcsec, 'Jitter (arcsec)', 0, 3600),
     readoutMs: number(camera.readoutMs, 'Readout (ms)', 0, 100_000),

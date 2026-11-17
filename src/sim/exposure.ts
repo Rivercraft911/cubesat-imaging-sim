@@ -1,10 +1,14 @@
-import type { CameraConfig, ExposureStudy } from './types';
+import type { CameraConfig, ExposureStudy, MainImageModel } from './types';
 
 /** Illustrative inputs, deliberately independent of sensor catalog specifications. */
 export const DEFAULT_EXPOSURE_STUDY: ExposureStudy = {
-  enabled: true, diffuseFraction: 0.001, referenceElectronsPerMs: 10_000,
+  diffuseFraction: 0.001, referenceElectronsPerMs: 10_000,
   readNoiseElectrons: 3, fullWellElectrons: 10_000, gain: 1,
 };
+
+export function mainImageModel(camera: CameraConfig): MainImageModel {
+  return camera.mainImageModel ?? 'pass';
+}
 
 /** Extended Lambertian scene: image irradiance scales as t / N².
  * Reference rate is for THIS sensor at f/4, unit linear source value, overhead Sun.
@@ -14,8 +18,8 @@ export const DEFAULT_EXPOSURE_STUDY: ExposureStudy = {
  * https://www.emva.org/wp-content/uploads/EMVA1288Linear_4.0Release.pdf
  */
 export function exposureScale(camera: CameraConfig): number {
-  const study = camera.exposureStudy;
-  return study ? study.referenceElectronsPerMs * camera.exposureMs * (4 / camera.lens.fNumber) ** 2 : 0;
+  const study = camera.exposureStudy ?? DEFAULT_EXPOSURE_STUDY;
+  return study.referenceElectronsPerMs * camera.exposureMs * (4 / camera.lens.fNumber) ** 2;
 }
 export function exposurePrediction(camera: CameraConfig, sourceValue: number, sunElevationDeg: number) {
   const study = camera.exposureStudy ?? DEFAULT_EXPOSURE_STUDY;

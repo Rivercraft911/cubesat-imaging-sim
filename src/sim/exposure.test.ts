@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultScenario, parseScenario } from './index';
+import { createDefaultScenario, mainImageModel, parseScenario } from './index';
 import { DEFAULT_EXPOSURE_STUDY, exposurePrediction, exposureScale } from './exposure';
 
 function camera() {
@@ -32,12 +32,44 @@ describe('illustrative exposure model', () => {
     expect(b.snr).toBeCloseTo(100 / Math.sqrt(109));
     expect(b.output).toBeCloseTo(10 * a.output);
   });
-  it('preserves old scenarios and validates optional study inputs', () => {
-    const scenario = createDefaultScenario();
-    expect(parseScenario(scenario).cameras[0].exposureStudy).toBeUndefined();
-    scenario.cameras[0] = camera();
-    expect(parseScenario(scenario).cameras[0].exposureStudy).toEqual(camera().exposureStudy);
-    scenario.cameras[0].exposureStudy!.fullWellElectrons = 0;
-    expect(() => parseScenario(scenario)).toThrow('Full well');
+  it('uses the study defaults when no settings were supplied', () => {
+    const c = { ...camera(), mainImageModel: 'twilight' as const, exposureStudy: undefined };
+    expect(exposurePrediction(c, 1, -6).electrons).toBe(
+      DEFAULT_EXPOSURE_STUDY.diffuseFraction * DEFAULT_EXPOSURE_STUDY.referenceElectronsPerMs,
+    );
+  });
+});
+
+describe('Main image model import', () => {
+  const scenario = createDefaultScenario();
+  const { mainImageModel: _mode, ...legacyMain } = scenario.cameras[0];
+  const withMain = (main: unknown) => ({ ...scenario, cameras: [main, ...scenario.cameras.slice(1)] });
+
+  it('defaults to pass lighting for new and unspecified legacy scenarios', () => {
+    expect(mainImageModel(scenario.cameras[0])).toBe('pass');
+    const imported = parseScenario(withMain(legacyMain)).cameras[0];
+    expect(mainImageModel(imported)).toBe('pass');
+    expect(imported.exposureStudy).toBeUndefined();
+  });
+
+  it.each([[false, 'reference'], [true, 'twilight']])('maps legacy enabled=%s to %s', (enabled, mode) => {
+    const study = camera().exposureStudy;
+    const imported = parseScenario(withMain({ ...legacyMain, exposureStudy: { ...study, enabled } })).cameras[0];
+    expect(imported.mainImageModel).toBe(mode);
+    expect(imported.exposureStudy).toEqual(study);
+  });
+
+  it.each(['pass', 'reference', 'twilight'])('preserves the explicit %s choice and custom study settings', mode => {
+    const study = camera().exposureStudy;
+    const selected = parseScenario(withMain({ ...legacyMain, mainImageModel: mode, exposureStudy: { ...study, enabled: false } }));
+    expect(selected.cameras[0]).toMatchObject({ mainImageModel: mode, exposureStudy: study });
+    expect(parseScenario(JSON.parse(JSON.stringify(selected)))).toEqual(selected);
+  });
+
+  it('rejects invalid modes and study inputs', () => {
+    expect(() => parseScenario(withMain({ ...legacyMain, mainImageModel: 'unknown' }))).toThrow('Main image model');
+    const study = camera().exposureStudy;
+    expect(() => parseScenario(withMain({ ...legacyMain, exposureStudy: { ...study, enabled: 'true' } }))).toThrow('enabled');
+    expect(() => parseScenario(withMain({ ...legacyMain, exposureStudy: { ...study, fullWellElectrons: 0 } }))).toThrow('Full well');
   });
 });

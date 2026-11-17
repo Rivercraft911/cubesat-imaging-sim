@@ -1,18 +1,24 @@
-import type { CameraConfig, ExposureStudy } from '../sim';
+import { mainImageModel, type CameraConfig, type ExposureStudy, type MainImageModel } from '../sim';
 import { DEFAULT_EXPOSURE_STUDY } from '../sim/exposure';
 import { NumberField, SelectField } from './fields';
+
+export const MAIN_IMAGE_MODEL_LABELS: Record<MainImageModel, string> = {
+  pass: 'Pass lighting',
+  reference: 'Daylight source reference',
+  twilight: 'Twilight exposure study',
+};
 
 export function TwilightSettings({ camera, onChange }: {
   camera: CameraConfig; onChange: (change: Partial<CameraConfig>) => void;
 }) {
   const study = camera.exposureStudy ?? DEFAULT_EXPOSURE_STUDY;
-  const enabled = camera.exposureStudy?.enabled ?? false;
+  const model = mainImageModel(camera);
   const update = (change: Partial<ExposureStudy>) => onChange({ exposureStudy: { ...study, ...change } });
   return <>
-    <SelectField label="Main image model" value={enabled ? 'twilight' : 'reference'}
-      options={[{ value: 'reference', label: 'Daylight source reference' }, { value: 'twilight', label: 'Twilight exposure study' }]}
-      onChange={value => update({ enabled: value === 'twilight' })} />
-    {enabled && <>
+    <SelectField label="Main image model" value={model}
+      options={Object.entries(MAIN_IMAGE_MODEL_LABELS).map(([value, label]) => ({ value, label }))}
+      onChange={value => onChange({ mainImageModel: value as MainImageModel })} />
+    {model === 'twilight' && <>
       <p className="note">Exposure and f-number set the light collected. Output gain amplifies both signal and noise.</p>
       <div className="field-grid">
         <NumberField label="Diffuse / overhead sunlight" value={study.diffuseFraction} min={0} max={1} step={0.0001} digits={6} onChange={diffuseFraction => update({ diffuseFraction })} />

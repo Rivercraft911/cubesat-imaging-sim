@@ -4,6 +4,7 @@ export type Vec3 = [number, number, number];
 /** Active rotation, ordered [x, y, z, w]. */
 export type Quat = [number, number, number, number];
 export type CameraId = 'main' | 'wideA' | 'wideB';
+export type MainImageModel = 'pass' | 'reference' | 'twilight';
 export type Projection = 'rectilinear' | 'equidistant' | 'equisolid';
 export type Pointing = 'target' | 'nadir' | 'sun';
 
@@ -17,7 +18,6 @@ export interface Lens {
 }
 /** Optional illustrative sensitivity study. Inputs are assumptions unless measured by the user. */
 export interface ExposureStudy {
-  enabled: boolean;
   diffuseFraction: number; // diffuse irradiance / overhead direct irradiance, constant across this pass
   referenceElectronsPerMs: number; // unit linear source value, overhead Sun, f/4, current sensor
   readNoiseElectrons: number;
@@ -27,6 +27,7 @@ export interface ExposureStudy {
 export interface CameraConfig {
   id: CameraId; name: string; sensorId: string; lens: Lens;
   positionBodyM: Vec3; yawDeg: number; pitchDeg: number; rollDeg: number;
+  mainImageModel?: MainImageModel;
   exposureStudy?: ExposureStudy;
   exposureMs: number; jitterArcsec: number; readoutMs: number;
   housingDiameterMm: number; housingLengthMm: number;

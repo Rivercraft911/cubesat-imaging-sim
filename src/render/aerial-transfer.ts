@@ -8,9 +8,8 @@ import { context as nodeContext, vec2, vec3 } from "three/tsl";
 import type { Node } from "three/webgpu";
 type RGBNode = Node<"vec3">;
 type Transfer = { get(name: "transmittance" | "luminance"): RGBNode };
-/** Bruneton LUT transport for context views only. Both endpoints receive the
- * same ellipsoid-to-atmosphere correction, then meters→kilometers conversion.
- * This never changes the normalized main-camera image. */
+/** Atmospheric transport for pass-lit views. Both endpoints use the same
+ * ellipsoid-to-atmosphere correction before conversion from meters to kilometers. */
 export function createAerialTransfer(context: AtmosphereContext) {
   context.raymarchScattering = false;
   const correction = context.altitudeCorrectionECEF as unknown as RGBNode;
