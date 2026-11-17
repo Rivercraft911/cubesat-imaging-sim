@@ -54,7 +54,7 @@ export default function App() {
   const displayView = received ? (downlink.receiver === '360' ? 'panorama' : 'image') : view;
   const { image, baseImage, progress } = useImagery(engine, version, scenario, time);
 
-  const activeCameraId = received && downlink.receiver === 'main' ? 'main' : cameraId;
+  const activeCameraId = received ? downlink.receiver === 'main' ? 'main' : 'wideA' : cameraId;
   const camera = scenario.cameras.find(item => item.id === activeCameraId)!;
   const sensor = getSensor(camera.sensorId, scenario.customSensor);
   const sample = useMemo(() => sampleState(scenario, time), [scenario, time]);
