@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { CanvasTexture, type TextureNode } from "three/webgpu";
-import { createPanoramaViewer } from "./panorama-viewer";
+import { createDefaultScenario, sampleState } from "../sim";
+import { createPanoramaViewer, initialPanoramaDirection } from "./panorama-viewer";
 
 it("replaces a resized received panorama texture and reuses it for same-size frames", () => {
   const output = new EventTarget() as HTMLCanvasElement;
@@ -35,4 +36,19 @@ it("replaces a resized received panorama texture and reuses it for same-size fra
   } finally {
     viewer.dispose();
   }
+});
+
+
+it("enters the panorama along the previous sensor axis, including tilted rear mounts", () => {
+  const scenario = createDefaultScenario();
+  const sample = sampleState(scenario, 150);
+  const [main, wideA, wideB] = scenario.cameras;
+  const direction = (camera?: typeof main) => initialPanoramaDirection(sample, camera);
+  expect(direction(main).y).toBeCloseTo(1, 12);
+  expect(direction(wideA).y).toBeCloseTo(1, 12);
+  expect(direction(wideB).y).toBeCloseTo(-1, 12);
+  const tilted = direction({ ...wideB, pitchDeg: 30, rollDeg: 17 });
+  expect(tilted.y).toBeCloseTo(-Math.sqrt(3) / 2, 12);
+  expect(tilted.z).toBeCloseTo(0.5, 12);
+  expect(direction().angleTo(direction(main))).toBeGreaterThan(0.5);
 });

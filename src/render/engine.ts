@@ -26,7 +26,7 @@ import { createOpticsPipeline } from "./native-optics";
 import { createCapturePipeline } from "./capture-pipeline";
 import { createSpaceContext } from "./space-context";
 import { installInspectionControls } from "./inspection-controls";
-import { createPanoramaViewer } from "./panorama-viewer";
+import { createPanoramaViewer, initialPanoramaDirection } from "./panorama-viewer";
 import { createGroundLayers } from "./ground-layers";
 import { advanceAerialArrival, aerialArrivalWeight, isAerialImage, settledAerialWeight } from "./aerial-blend";
 import { makePlanetSurface } from "./planet-surface";
@@ -502,6 +502,8 @@ export async function createImagingEngine(
         dirty = true;
       },
       setView(next, id = "main") {
+        const previousView = view;
+        const previousCamera = cameraId;
         view = next;
         cameraId = id;
         space.setActive(next === "space");
@@ -510,16 +512,12 @@ export async function createImagingEngine(
           spaceVisited = true;
         }
         if (next === "panorama" && !panoramaVisited) {
-          // Start the observer window Earth-facing. This changes only where
-          // the panorama is viewed, never camera boresights or apparent scale.
-          // Later view changes and scrubbing preserve the user's yaw/pitch.
-          const nadir = new THREE.Vector3(...sample.positionEcefM)
-            .normalize().negate()
-            .applyQuaternion(new THREE.Quaternion(...sample.qEcefFromBody).invert());
-          panoramaViewer.setLookDirection(nadir);
+          panoramaViewer.setLookDirection(initialPanoramaDirection(
+            sample, previousView === "image" ? config(previousCamera) : undefined,
+          ));
           panoramaVisited = true;
         }
-        inspectionControls.recenter();
+        inspectionControls.selectCamera(id);
         dirty = true;
       },
       setCameraSelectHandler(handler) {

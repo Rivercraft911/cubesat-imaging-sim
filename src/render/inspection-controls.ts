@@ -1,3 +1,5 @@
+import type { CameraId } from "../sim/types";
+
 export interface InspectionFrame {
   width: number;
   height: number;
@@ -85,7 +87,12 @@ export function installInspectionControls(
   frame: () => InspectionFrame,
   changed: () => void,
 ) {
-  const transform = new InspectionTransform();
+  const transforms: Record<CameraId, InspectionTransform> = {
+    main: new InspectionTransform(),
+    wideA: new InspectionTransform(),
+    wideB: new InspectionTransform(),
+  };
+  let transform = transforms.main;
   const pointers = new Map<number, { x: number; y: number }>();
   const previousTouchAction = canvas.style.touchAction;
   canvas.style.touchAction = "none";
@@ -174,10 +181,9 @@ export function installInspectionControls(
       transform.reset(mode);
       changed();
     },
-    recenter() {
+    selectCamera(id: CameraId) {
       pointers.clear();
-      transform.recenter();
-      changed();
+      transform = transforms[id];
     },
     dispose() {
       canvas.style.touchAction = previousTouchAction;

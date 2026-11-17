@@ -1,6 +1,18 @@
 import * as THREE from "three/webgpu";
 import { texture, uniform, uv, vec2, vec3, wgslFn } from "three/tsl";
 
+import { cameraPose, type CameraConfig, type SimulationSample } from "../sim";
+
+/** Enter from a sensor along its central ray, or from the external view toward Earth. */
+export function initialPanoramaDirection(sample: SimulationSample, camera?: CameraConfig) {
+  const direction = camera
+    ? new THREE.Vector3(0, 0, 1).applyQuaternion(
+        new THREE.Quaternion(...cameraPose(sample, camera).qEcefFromCamera),
+      )
+    : new THREE.Vector3(...sample.positionEcefM).normalize().negate();
+  return direction.applyQuaternion(new THREE.Quaternion(...sample.qEcefFromBody).invert());
+}
+
 /** A 360° raster is a transport projection. The observer sees a rectilinear
  * window into that sphere; changing this view never changes either sensor. */
 export const panoramaViewRayWGSL = /*wgsl*/ `

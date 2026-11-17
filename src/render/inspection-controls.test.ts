@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import {
+  installInspectionControls,
   InspectionTransform,
   type InspectionFrame,
 } from "./inspection-controls";
@@ -57,4 +58,29 @@ it("uses actual framebuffer DPR without changing sensor dimensions", () => {
     1600, 1200, 800, 600,
   ]);
   expect(view.crop(frame)).toEqual([1200, 900, 1600, 1200]);
+});
+
+it("restores the inspected pixels and zoom when returning to a camera", () => {
+  const canvas = Object.assign(new EventTarget(), {
+    style: { touchAction: "" },
+    setPointerCapture() {},
+  });
+  const controls = installInspectionControls(
+    canvas as unknown as HTMLCanvasElement, () => true, () => frame, () => {},
+  );
+  controls.reset("native");
+  const drag = (type: string, x: number) => canvas.dispatchEvent(Object.assign(new Event(type), {
+    pointerId: 1, pointerType: "mouse", button: 0, clientX: x, clientY: 300,
+  }));
+  drag("pointerdown", 400);
+  drag("pointermove", 500);
+  const mainCrop = controls.crop;
+  expect(mainCrop).toEqual([1000, 900, 1600, 1200]);
+  controls.selectCamera("wideA");
+  expect(controls.state.mode).toBe("fit");
+  drag("pointermove", 350);
+  controls.selectCamera("main");
+  expect(controls.state.mode).toBe("native");
+  expect(controls.crop).toEqual(mainCrop);
+  controls.dispose();
 });
