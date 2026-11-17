@@ -125,7 +125,9 @@ export class DownlinkStream {
     this.counters.deliveredBytes += bytes
     this.#delivered.add(now, bytes)
     if (packet.decoderConfig) this.#receiverConfig = packet.decoderConfig
-    if (packet.restart || (this.#decoder?.decodeQueueSize ?? 0) >= MAX_DECODER_REQUESTS) {
+    const queued = this.#decoder?.decodeQueueSize ?? 0
+    if (packet.restart || queued >= MAX_DECODER_REQUESTS) {
+      this.counters.decoderDrops += queued
       this.#resetDecoder()
     }
     if (!this.#decoder && packet.chunk.type !== 'key') {
