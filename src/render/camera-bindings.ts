@@ -1,6 +1,7 @@
 import * as THREE from "three/webgpu";
 import {
   cameraPose,
+  computeMetrics,
   getSensor,
   type CameraConfig,
   type SensorProfile,
@@ -9,6 +10,15 @@ import {
 } from "../sim";
 import type { makeSensorMaterial } from "./sensor-material";
 import type { makeStitch } from "./stitch";
+import { stitchEdgeFeatherPx } from "./stitch-confidence";
+const featherCache = new WeakMap<
+  ReturnType<typeof makeStitch>,
+  {
+    scenario: Scenario;
+    timeS: number;
+    values: { A: number; B: number };
+  }
+>();
 
 /** Explicit CPU → GPU projection bindings, shared by display and recording. */
 function matrix(q: THREE.Quaternion) {
@@ -70,6 +80,30 @@ export function bindPanoramaCameras(
   const config = (id: string) => scenario.cameras.find((c) => c.id === id)!;
   const sensorInfo = (camera: CameraConfig) =>
     getSensor(camera.sensorId, scenario.customSensor);
+  let feather = featherCache.get(stitch);
+  if (
+    !feather ||
+    feather.scenario !== scenario ||
+    feather.timeS !== sample.timeS
+  ) {
+    feather = {
+      scenario,
+      timeS: sample.timeS,
+      values: {
+        A: stitchEdgeFeatherPx(
+          config("wideA"),
+          computeMetrics(scenario, "wideA", sample.timeS),
+        ),
+        B: stitchEdgeFeatherPx(
+          config("wideB"),
+          computeMetrics(scenario, "wideB", sample.timeS),
+        ),
+      },
+    };
+    featherCache.set(stitch, feather);
+  }
+  stitch.u.featherPixelsA.value = feather.values.A;
+  stitch.u.featherPixelsB.value = feather.values.B;
   stitch.u.perspective.value = 0;
   stitch.u.cropA.value.set(0, 0, 1, 1);
   stitch.u.cropB.value.set(0, 0, 1, 1);
