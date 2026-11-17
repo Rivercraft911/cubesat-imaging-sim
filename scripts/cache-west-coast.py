@@ -1,4 +1,4 @@
-"""Cache NASA GIBS Terra MODIS true color for the simulator. Requires Pillow."""
+"""Build the West Coast texture from Terra MODIS. Requires Pillow."""
 
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -16,10 +16,13 @@ WMS = "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi"
 LAYER = "MODIS_Terra_CorrectedReflectance_TrueColor"
 ACQUIRED = "2025-03-25"
 ATTRIBUTION = "NASA GIBS / Terra MODIS true color, 2025-03-25 UTC"
-BOUNDS = (-130.66666666666666, 29.1, -113.6, 46.166666666666664)
+# Full default 25 mm Stanford pass, with room for the geographic edge blend.
+BOUNDS = (-131.25, 23.0, -114.0, 52.0)
 QUADRANT_SIZE = 4096
 SIZE = QUADRANT_SIZE * 2
-OUTPUT_DIR = Path(__file__).resolve().parents[1] / "public" / "assets"
+ROOT = Path(__file__).resolve().parents[1]
+OUTPUT_DIR = ROOT / "public" / "assets"
+CACHE_DIR = ROOT / "data" / "gibs-west-coast"
 
 
 def fetch_quadrant(bounds):
@@ -30,12 +33,16 @@ def fetch_quadrant(bounds):
         "WIDTH": QUADRANT_SIZE, "HEIGHT": QUADRANT_SIZE, "FORMAT": "image/png", "TRANSPARENT": "TRUE",
     }
     url = f"{WMS}?{urlencode(params)}"
-    request = Request(url, headers={"User-Agent": "CubeSat-Imaging-Sim regional asset build"})
-    with urlopen(request, timeout=120) as response:
-        if response.headers.get_content_type() != "image/png":
-            raise ValueError(f"WMS did not return a PNG for {bounds}")
-        raw = response.read()
-        etag = response.headers.get("ETag")
+    cache_path = CACHE_DIR / f"{sha256(url.encode()).hexdigest()}.png"
+    cached = cache_path.is_file()
+    if cached:
+        raw = cache_path.read_bytes()
+    else:
+        request = Request(url, headers={"User-Agent": "CubeSat-Imaging-Sim regional asset build"})
+        with urlopen(request, timeout=120) as response:
+            if response.headers.get_content_type() != "image/png":
+                raise ValueError(f"WMS did not return a PNG for {bounds}")
+            raw = response.read()
 
     with Image.open(BytesIO(raw)) as source:
         if source.size != (QUADRANT_SIZE, QUADRANT_SIZE) or source.mode != "RGBA":
@@ -43,7 +50,19 @@ def fetch_quadrant(bounds):
         if source.getchannel("A").getextrema() != (255, 255):
             raise ValueError(f"Acquisition has transparent pixels within {bounds}")
         tile = source.convert("RGB")
-    return tile, {"url": url, "bounds_lon_lat_deg": bounds, "bytes": len(raw), "sha256": sha256(raw).hexdigest(), "etag": etag}
+    if not cached:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = cache_path.with_suffix(".tmp")
+        temporary.write_bytes(raw)
+        temporary.replace(cache_path)
+    return tile, {
+        "url": url,
+        "bounds_lon_lat_deg": bounds,
+        "bytes": len(raw),
+        "sha256": sha256(raw).hexdigest(),
+        "cache_file": str(cache_path.relative_to(ROOT)),
+        "cached_utc": datetime.fromtimestamp(cache_path.stat().st_mtime, timezone.utc).isoformat(),
+    }
 
 
 def ground_grid_at_center():
@@ -123,7 +142,7 @@ def main():
         "source_layer": LAYER,
         "source_tile_matrix": "250m",
         "acquisition_date_utc": ACQUIRED,
-        "retrieved_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
         "runtime_dimensions": [SIZE, SIZE],
         "crs": "EPSG:4326",
         "bounds_deg": {"west": west, "east": east, "south": south, "north": north},

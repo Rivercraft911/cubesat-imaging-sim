@@ -10,80 +10,84 @@
   "source_layer": "MODIS_Terra_CorrectedReflectance_TrueColor",
   "source_tile_matrix": "250m",
   "acquisition_date_utc": "2025-03-25",
-  "retrieved_utc": "2026-11-17T10:40:11.737586+00:00",
+  "generated_utc": "2026-11-17T11:32:05.578445+00:00",
   "runtime_dimensions": [
     8192,
     8192
   ],
   "crs": "EPSG:4326",
   "bounds_deg": {
-    "west": -130.66666666666666,
-    "east": -113.6,
-    "south": 29.1,
-    "north": 46.166666666666664
+    "west": -131.25,
+    "east": -114.0,
+    "south": 23.0,
+    "north": 52.0
   },
   "angular_pixel_spacing_deg": [
-    0.002083333333333333,
-    0.002083333333333333
+    0.002105712890625,
+    0.0035400390625
   ],
   "center_pixel_spacing_m": {
-    "east_west": 183.89161261806876,
-    "north_south": 231.22822861080516
+    "east_west": 186.19859759280124,
+    "north_south": 392.89844552020986
   },
   "transform": "Four WMS-rendered RGB quadrants pasted on a common north-up grid. No local resampling or color changes. WebP quality 90, method 4.",
   "limits": "Daily true-color browse imagery includes observed clouds, atmosphere and Terra granule geometry. An acquisition join is visible at the far northwest edge. The reported pixel spacing describes the served display grid resampled from the nominal 250 m GIBS product.",
   "source_quadrants": [
     {
       "name": "northwest",
-      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&SRS=EPSG%3A4326&BBOX=-130.66666666666666%2C37.63333333333333%2C-122.13333333333333%2C46.166666666666664&TIME=2025-03-25&WIDTH=4096&HEIGHT=4096&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
+      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&SRS=EPSG%3A4326&BBOX=-131.25%2C37.5%2C-122.625%2C52.0&TIME=2025-03-25&WIDTH=4096&HEIGHT=4096&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
       "bounds_lon_lat_deg": [
-        -130.66666666666666,
-        37.63333333333333,
-        -122.13333333333333,
-        46.166666666666664
+        -131.25,
+        37.5,
+        -122.625,
+        52.0
       ],
-      "bytes": 24795645,
-      "sha256": "20dac96886de68fa57561da32f8d59c8bc7d2d51fb23e1611e3160f60165da19",
-      "etag": null
+      "bytes": 21746562,
+      "sha256": "5b17c422a9c1777494c6da046237bd308d42b266913df8dcf6af62ca3866b60f",
+      "cache_file": "data/gibs-west-coast/161c0c32287ce41c913f0ca8d191a4e27c5e474eb6d545deae8b1e7bf729e052.png",
+      "cached_utc": "2026-11-17T11:31:36.062866+00:00"
     },
     {
       "name": "northeast",
-      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&SRS=EPSG%3A4326&BBOX=-122.13333333333333%2C37.63333333333333%2C-113.6%2C46.166666666666664&TIME=2025-03-25&WIDTH=4096&HEIGHT=4096&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
+      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&SRS=EPSG%3A4326&BBOX=-122.625%2C37.5%2C-114.0%2C52.0&TIME=2025-03-25&WIDTH=4096&HEIGHT=4096&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
       "bounds_lon_lat_deg": [
-        -122.13333333333333,
-        37.63333333333333,
-        -113.6,
-        46.166666666666664
+        -122.625,
+        37.5,
+        -114.0,
+        52.0
       ],
-      "bytes": 35681395,
-      "sha256": "ce9e3d2f9b4a33ce12fa69a2fba5e6efa9122df895884fe3af8e9dc804c033fa",
-      "etag": null
+      "bytes": 33528717,
+      "sha256": "a41c594ddc2a72e11ed453fc1a65bcef84cbcaf30a62fe27eb84d68aaec581d4",
+      "cache_file": "data/gibs-west-coast/f110226666820e15f85d5d2401b3f3bd8c162ca5a9abfd1d1381c9ce83e4ab44.png",
+      "cached_utc": "2026-11-17T11:31:41.496341+00:00"
     },
     {
       "name": "southwest",
-      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&SRS=EPSG%3A4326&BBOX=-130.66666666666666%2C29.1%2C-122.13333333333333%2C37.63333333333333&TIME=2025-03-25&WIDTH=4096&HEIGHT=4096&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
+      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&SRS=EPSG%3A4326&BBOX=-131.25%2C23.0%2C-122.625%2C37.5&TIME=2025-03-25&WIDTH=4096&HEIGHT=4096&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
       "bounds_lon_lat_deg": [
-        -130.66666666666666,
-        29.1,
-        -122.13333333333333,
-        37.63333333333333
+        -131.25,
+        23.0,
+        -122.625,
+        37.5
       ],
-      "bytes": 22916627,
-      "sha256": "c47a2b2081bda75bb3768536869bc905541ad435e7f844dc68b60cedeb52056a",
-      "etag": null
+      "bytes": 27776590,
+      "sha256": "aa50a46aaab34a580a1359543c677235be6e4a9bf3b65b5ffa07966c054e06f7",
+      "cache_file": "data/gibs-west-coast/a0648f3480f1fba4270500e18f4d0b52eb49fc2292293941b98bcacf47783227.png",
+      "cached_utc": "2026-11-17T11:31:47.392314+00:00"
     },
     {
       "name": "southeast",
-      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&SRS=EPSG%3A4326&BBOX=-122.13333333333333%2C29.1%2C-113.6%2C37.63333333333333&TIME=2025-03-25&WIDTH=4096&HEIGHT=4096&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
+      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&SRS=EPSG%3A4326&BBOX=-122.625%2C23.0%2C-114.0%2C37.5&TIME=2025-03-25&WIDTH=4096&HEIGHT=4096&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
       "bounds_lon_lat_deg": [
-        -122.13333333333333,
-        29.1,
-        -113.6,
-        37.63333333333333
+        -122.625,
+        23.0,
+        -114.0,
+        37.5
       ],
-      "bytes": 28684980,
-      "sha256": "35647ce27680438f44d30179ebc9e3ca125c3f23e01b470a566735d8754f1243",
-      "etag": null
+      "bytes": 28407861,
+      "sha256": "8ca485017b97cf81e848eb3f28df6221536c983873087fc22a44281251f79e9f",
+      "cache_file": "data/gibs-west-coast/8d1bc8518c73047e3faf3c89e2d44830b93ec90a58166989fb1c8aae3283f1b0.png",
+      "cached_utc": "2026-11-17T11:31:52.781504+00:00"
     }
   ],
   "coverage_samples": {
@@ -93,9 +97,9 @@
         37.7
       ],
       "rgb_before_webp": [
-        85,
-        98,
-        106
+        94,
+        107,
+        115
       ]
     },
     "coastal_pacific": {
@@ -132,9 +136,9 @@
       ]
     }
   },
-  "exact_black_pixels_before_webp": 6,
-  "runtime_bytes": 10351724,
-  "runtime_sha256": "547b97b24855295c89db82ffffb066002321116e4eb9d3ce4811af8798d093fd",
+  "exact_black_pixels_before_webp": 7,
+  "runtime_bytes": 12341960,
+  "runtime_sha256": "5a619cdde834b6a017f4f596fea5fb5decdc27a29ef6928e7dfa9ab8681d262c",
   "software": {
     "pillow": "11.2.1",
     "libwebp": "1.5.0"
