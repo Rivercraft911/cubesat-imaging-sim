@@ -1,14 +1,46 @@
-.lens-comparison { color: #e8ebed; background: #14171b; border: 1px solid #41474f; border-radius: 8px; padding: 22px; width: min(1160px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow: auto; }
-.lens-comparison::backdrop { background: rgb(0 0 0 / 70%); }
-.lens-comparison header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.lens-comparison h2 { font-size: 20px; margin: 0 0 10px; }
-.lens-comparison p { color: #aeb6c1; font-size: 13px; line-height: 1.5; }
-.comparison-controls { display: flex; align-items: end; gap: 16px; margin: 18px 0; flex-wrap: wrap; }
-.comparison-controls .number-field { width: 180px; }
-.comparison-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
-.comparison-columns article { min-width: 0; }
-.comparison-frame { border-top: 1px solid #343b44; padding-top: 8px; }
-.comparison-frame h3 { font-size: 14px; font-weight: 500; }
-.comparison-overview { display: block; width: 100%; height: 150px; background: #080a0c; }
-.comparison-crop { display: block; width: 100%; height: 220px; margin-top: 10px; background: #080a0c; }
-@media (max-width: 720px) { .comparison-columns { grid-template-columns: 1fr; } }
+.lens-comparison {
+  width: min(1280px, calc(100vw - 48px)); max-height: calc(100dvh - 48px);
+  padding: clamp(16px, 2.2vw, 32px); overflow: auto;
+  color: #eeeae1; background: #101110; border: 1px solid #3a3c37; border-radius: 3px;
+}
+.lens-comparison::backdrop { background: rgb(0 0 0 / 80%); }
+.comparison-heading, .comparison-columns article > header, .comparison-caption {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
+}
+.comparison-heading h2 { font-weight: 500; letter-spacing: -.035em; font-size: 26px; margin: 0; }
+.lens-comparison p, .comparison-columns article > header > span {
+  font-size: 12px; line-height: 1.45; color: #bdbdb4; font-variant-numeric: tabular-nums;
+}
+.comparison-heading p { margin: 5px 0 0; }
+.comparison-heading button { font-size: 13px; }
+.comparison-controls, .comparison-controls fieldset, .comparison-toggles {
+  display: flex; flex-wrap: wrap; align-items: end; gap: 16px;
+}
+.comparison-controls { margin: 24px 0 18px; padding-bottom: 16px; border-bottom: 1px solid #3a3c37; }
+.comparison-controls fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
+.comparison-controls .number-field { width: 84px; }
+.comparison-capture { font-size: 13px; color: #171816; background: #e8e6dc; border-radius: 3px; }
+.comparison-capture:hover { background: #faf8f0; color: #111; }
+.comparison-toggles { margin-left: auto; gap: 6px; }
+.comparison-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.comparison-columns article > header { margin-bottom: 8px; flex-wrap: wrap; row-gap: 0; }
+.comparison-columns h3 { margin: 0; font-size: 27px; font-weight: 400; letter-spacing: -.04em; }
+.comparison-columns h3 small { font-size: 13px; letter-spacing: 0; }
+.comparison-photo { position: relative; height: clamp(240px, 44vh, 540px); background: #080908; }
+.comparison-photo canvas { display: block; background: #080908; }
+.comparison-crop, .comparison-photo.fit .comparison-overview { width: 100%; height: 100%; }
+.comparison-overview { position: absolute; right: 8px; bottom: 8px; width: 74px; height: 74px; outline: 1px solid #dad9cd80; }
+.comparison-photo.fit .comparison-overview { inset: 0; outline: none; }
+.comparison-photo.fit .comparison-crop { visibility: hidden; }
+.comparison-reticle { position: absolute; left: 50%; top: 50%; width: 15px; height: 15px; transform: translate(-50%, -50%); border: 1px solid #fff3c8c9; border-radius: 100%; box-shadow: 0 0 1px #111; pointer-events: none; }
+.comparison-caption { margin: 7px 0; flex-wrap: wrap; }
+.comparison-details { border-top: 1px solid #393b36; margin-top: 20px; padding-top: 12px; overflow-wrap: anywhere; }
+.comparison-details summary { cursor: pointer; font-size: 12px; color: #babcb2; }
+.comparison-pending { padding: 30px 0; }
+@media (max-width: 740px) {
+  .lens-comparison { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }
+  .comparison-controls { gap: 10px; }
+  .comparison-toggles { margin-left: 0; }
+  .comparison-columns { grid-template-columns: minmax(0,1fr); gap: 14px; }
+  .comparison-photo { height: clamp(165px, 32vh, 300px); }
+}

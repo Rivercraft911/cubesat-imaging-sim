@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { computeMetrics, getSensor, sampleState, type Scenario } from '../sim';
+import { computeMetrics, getSensor, projectStudyLandmark, sampleState, type Scenario } from '../sim';
 import type { ImagingEngine } from '../render';
 import type { DownlinkConfig } from '../downlink';
 import { decodeComparisonFrame, type ComparisonDecode } from './lens-comparison-codec';
 import { fmt, NumberField } from './fields';
+import { ComparisonFrame } from './ComparisonFrame';
 import './lens-comparison.css';
 
 export function withMainFocalLength(scenario: Scenario, focalLengthMm: number): Scenario {
@@ -13,41 +14,6 @@ export function withMainFocalLength(scenario: Scenario, focalLengthMm: number): 
 export interface ComparisonSnapshot { scenario: Scenario; timeS: number; config: DownlinkConfig }
 interface Result { focal: number; source: ImageBitmap; received?: ComparisonDecode; error?: string; scenario: Scenario }
 
-function FrameView({ image, target, label, targetVisible }: { image: ImageBitmap | HTMLCanvasElement; target: [number, number]; label: string; targetVisible: boolean }) {
-  const overview = useRef<HTMLCanvasElement>(null);
-  const crop = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = crop.current!;
-    const context = canvas.getContext('2d')!;
-    const full = overview.current!;
-    const paint = () => {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, Math.round(canvas.clientWidth * dpr));
-      canvas.height = Math.max(1, Math.round(canvas.clientHeight * dpr));
-      const x = Math.round(target[0] - canvas.width / 2), y = Math.round(target[1] - canvas.height / 2);
-      context.fillStyle = '#080a0c'; context.fillRect(0, 0, canvas.width, canvas.height);
-      context.imageSmoothingEnabled = false;
-      context.drawImage(image, -x, -y);
-      full.width = Math.round(full.clientWidth * dpr); full.height = Math.round(full.clientHeight * dpr);
-      const fullContext = full.getContext('2d')!;
-      const scale = Math.min(full.width / image.width, full.height / image.height);
-      const left = (full.width - image.width * scale) / 2, top = (full.height - image.height * scale) / 2;
-      fullContext.fillStyle = '#080a0c'; fullContext.fillRect(0, 0, full.width, full.height);
-      fullContext.drawImage(image, left, top, image.width * scale, image.height * scale);
-      fullContext.strokeStyle = '#f7f7f7'; fullContext.lineWidth = dpr;
-      fullContext.strokeRect(left + x * scale, top + y * scale, canvas.width * scale, canvas.height * scale);
-    };
-    const observer = new ResizeObserver(paint); observer.observe(canvas); paint();
-    window.addEventListener('resize', paint);
-    return () => { observer.disconnect(); window.removeEventListener('resize', paint); };
-  }, [image, target[0], target[1]]);
-  return <section className="comparison-frame"><h3>{label} · {image.width} × {image.height}</h3>
-    <canvas className="comparison-overview" ref={overview} aria-label={`${label} full frame; box marks the crop`} />
-    <canvas className="comparison-crop" ref={crop} aria-label={`${label} native pixel crop centered on ${targetVisible ? 'Stanford' : 'image center'}`} />
-    <p>{targetVisible ? 'Stanford' : 'Image center'} crop · 1 image pixel = 1 display pixel</p>
-  </section>;
-}
-
 export function LensComparison({ snapshot, engine, focalLengths, onFocalLengths, onClose, imageryReady, imageryMessage, imageryId, onBusy }: {
   snapshot: ComparisonSnapshot; engine: ImagingEngine; focalLengths: [number, number];
   onFocalLengths: (values: [number, number]) => void; onClose: () => void; imageryReady: boolean; imageryMessage: string; imageryId: string; onBusy: (busy: boolean) => void;
@@ -55,6 +21,9 @@ export function LensComparison({ snapshot, engine, focalLengths, onFocalLengths,
   const [results, setResults] = useState<Result[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [feed, setFeed] = useState<'source' | 'received'>('source');
+  const [fit, setFit] = useState(false);
+  const started = useRef(false);
   const [capturedImagery, setCapturedImagery] = useState('');
   const cancel = useRef<AbortController | null>(null);
   const held = useRef<Result[]>([]);
@@ -69,12 +38,15 @@ export function LensComparison({ snapshot, engine, focalLengths, onFocalLengths,
     videoBitrateBps: snapshot.config.program === 'both' ? Math.floor(snapshot.config.videoBitrateBps / 2) : snapshot.config.videoBitrateBps,
     mainAspectRatio: sensor.width / sensor.height };
   const run = async () => {
-    if (busy || !imageryReady) return;
+    if (busy) return;
+    started.current = true;
     const controller = new AbortController(); cancel.current = controller;
     setBusy(true); onBusy(true); setError(''); setCapturedImagery(imageryId);
     // Let React commit the imagery upload freeze before either capture.
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-    held.current.forEach(result => result.source.close()); held.current = []; setResults([]);
+    held.current.forEach(result => result.source.close());
+    held.current = [];
+    setResults([]);
     try {
       controller.signal.throwIfAborted();
       const groundRevision = engine.getGroundRevision();
@@ -88,40 +60,76 @@ export function LensComparison({ snapshot, engine, focalLengths, onFocalLengths,
       }
       setResults([...held.current]);
       for (const result of held.current) {
-        try { result.received = await decodeComparisonFrame(result.source, config, controller.signal); }
+        try {
+          const study = { scenario: result.scenario, timeS: snapshot.timeS, groundRevision };
+          result.received = await decodeComparisonFrame((width, height, init) =>
+            engine.getEncoderFrame('main', width, height, snapshot.timeS * 1e6, init, study), config, controller.signal);
+        }
         catch (cause) { controller.signal.throwIfAborted(); result.error = cause instanceof Error ? cause.message : String(cause); }
         setResults([...held.current]);
       }
     } catch (cause) { if (!controller.signal.aborted) setError(String(cause)); }
     finally { if (!controller.signal.aborted) { setBusy(false); onBusy(false); } }
   };
-  return <dialog ref={dialog} className="lens-comparison" onCancel={onClose}>
-    <header><h2>Compare main lenses</h2><button onClick={onClose} aria-label="Close lens comparison">Close</button></header>
-    <p>Frozen at {sampleState(snapshot.scenario, snapshot.timeS).epochISO} · same sensor, exposure and attitude. Ground-image uploads are held during capture; each footprint uses the available detail coverage.</p>
+  // Capture the opening pair once the requested imagery settles. A slow source
+  // can still be inspected immediately using the manual capture action.
+  useEffect(() => {
+    if (started.current || !imageryReady) return;
+    // Opening changes the requested footprint; let its image effects publish first.
+    const timer = setTimeout(() => { if (!started.current) void run(); }, 160);
+    return () => clearTimeout(timer);
+  }, [imageryReady, imageryId, focalLengths]);
+  const sample = sampleState(snapshot.scenario, snapshot.timeS);
+  const utc = sample.epochISO.replace('T', ' ').slice(0, 19);
+  return <dialog ref={dialog} className="lens-comparison" aria-labelledby="comparison-title" onCancel={onClose}>
+    <header className="comparison-heading">
+      <div><h2 id="comparison-title">Lens comparison</h2><p>{snapshot.scenario.target.name} · {utc} UTC · {fmt(snapshot.scenario.altitudeM / 1000, 0)} km</p></div>
+      <button onClick={onClose} aria-label="Close lens comparison">Close</button>
+    </header>
     <div className="comparison-controls">
-      {focalLengths.map((focal, i) => <NumberField key={i} label={`Lens ${i === 0 ? 'A' : 'B'}`} unit="mm" value={focal} min={0.01} max={10000} step={1}
-        onChange={value => { if (!busy) { const next: [number, number] = [...focalLengths]; next[i] = value; onFocalLengths(next); } }} />)}
-      <button onClick={() => void run()} disabled={busy || !imageryReady}>{busy ? 'Rendering and decoding…' : 'Capture both lenses'}</button>
+      <fieldset disabled={busy}>
+        {focalLengths.map((focal, i) => <NumberField key={i} label={`Lens ${i === 0 ? 'A' : 'B'}`} unit="mm" value={focal} min={0.01} max={10000} step={1}
+          onChange={value => { const next: [number, number] = [...focalLengths]; next[i] = value; onFocalLengths(next); }} />)}
+      </fieldset>
+      <button className="comparison-capture" onClick={() => void run()} disabled={busy}>{busy ? 'Capturing…' : 'Capture both lenses'}</button>
+      <div className="comparison-toggles">
+        <div className="inspection-buttons" aria-label="Comparison feed">
+          {(['source', 'received'] as const).map(value => <button key={value} aria-pressed={value === feed}
+            className={value === feed ? 'active' : ''} onClick={() => setFeed(value)}>{value === 'source' ? 'Source' : 'Received'}</button>)}
+        </div>
+        <div className="inspection-buttons" aria-label="Comparison scale">
+          <button aria-pressed={fit} className={fit ? 'active' : ''} onClick={() => setFit(true)}>Fit</button>
+          <button aria-pressed={!fit} className={!fit ? 'active' : ''} onClick={() => setFit(false)}>1:1</button>
+        </div>
+      </div>
     </div>
-    <p>{imageryMessage} · Capture uses the currently available imagery, including coarse coverage if detail is unavailable.</p>
-    {capturedImagery && <p>Available detail image: {capturedImagery}</p>}
-    <p>Received: {config.codec.toUpperCase()} · {config.resolution}p · {fmt(config.videoBitrateBps / 1e6, 2)} Mb/s target at {config.fps} fps · {fmt(config.linkBitrateBps / 1e6, 2)} Mb/s link. Each lens sends one real encoded keyframe through an independent empty queue, with the same link limits. This is a still-frame comparison; it does not measure sustained video quality.</p>
     {error && <p role="alert">{error}</p>}
+    {results.length === 0 && !error && <p className="comparison-pending" role="status">{busy ? 'Rendering the two native exposures…' : imageryMessage}</p>}
     <div className="comparison-columns">{results.map((result, i) => {
       const metrics = computeMetrics(result.scenario, 'main', snapshot.timeS);
-      const projected = metrics.targetPixel;
-      const targetVisible = metrics.groundVisible && sampleState(result.scenario, snapshot.timeS).targetElevationDeg > 0 && !!projected
-        && projected[0] >= 0 && projected[0] < sensor.width && projected[1] >= 0 && projected[1] < sensor.height;
-      const target: [number, number] = targetVisible ? projected! : [sensor.width / 2, sensor.height / 2];
-      const decoded = result.received?.image;
-      return <article key={i}><h2>Lens {i === 0 ? 'A' : 'B'} · {result.focal} mm</h2>
-        <p>Center GSD {metrics.groundVisible ? `${fmt(metrics.gsdXM, 2)} × ${fmt(metrics.gsdYM, 2)} m/pixel` : 'unavailable (no ground intersection)'}{!targetVisible && ' · Stanford is outside the visible image; showing center'}</p>
-        <FrameView image={result.source} target={target} targetVisible={targetVisible} label="Source" />
-        {decoded && <FrameView image={decoded} target={[target[0] * decoded.width / sensor.width, target[1] * decoded.height / sensor.height]} targetVisible={targetVisible} label="Received" />}
-        {decoded && <p>Received center sampling: {metrics.groundVisible ? `${fmt(metrics.gsdXM * sensor.width / decoded.width, 2)} × ${fmt(metrics.gsdYM * sensor.height / decoded.height, 2)} m/pixel` : 'unavailable (no ground intersection)'}</p>}
-        {result.received && <p>{fmt(result.received.bytes / 1000, 1)} kB including decoder description · {result.received.codec} · {result.received.dropped ? `not received: ${result.received.dropped} limit` : `${fmt(result.received.arrivalMs!, 1)} ms modeled arrival`}</p>}
-        {result.error && <p role="alert">Source captured. Received unavailable: {result.error}</p>}
+      const landmark = projectStudyLandmark(result.scenario, snapshot.timeS);
+      const image = feed === 'source' ? result.source : result.received?.image;
+      const received = result.received;
+      const scaleX = sensor.width / (image?.width ?? sensor.width);
+      const scaleY = sensor.height / (image?.height ?? sensor.height);
+      const point: [number, number] | null = landmark.pixel ? [landmark.pixel[0] / scaleX, landmark.pixel[1] / scaleY] : null;
+      return <article key={i}>
+        <header><h3>{fmt(result.focal, 2)} <small>mm</small></h3>
+          <span>{metrics.centerGroundVisible
+            ? `${fmt(metrics.gsdXM * scaleX, 1)} × ${fmt(metrics.gsdYM * scaleY, 1)} m/px at center` : 'Center looks into space'}</span></header>
+        {image ? <>
+          <ComparisonFrame image={image} point={point} fit={fit} label={`Lens ${i === 0 ? 'A' : 'B'}, ${feed}`} />
+          <p className="comparison-caption"><span>{point ? landmark.label : 'Image center · landmark out of view'}</span><span>{image.width} × {image.height}</span></p>
+        </> : <p className="comparison-pending" role="status">{result.error ?? (received?.dropped ? `Keyframe exceeded the ${received.dropped} limit.` : 'Decoding keyframe…')}</p>}
+        {feed === 'received' && received?.arrivalMs !== undefined && <p>{fmt(received.bytes / 1000, 1)} kB · {fmt(received.arrivalMs, 0)} ms modeled arrival</p>}
       </article>;
     })}</div>
+    <details className="comparison-details"><summary>Capture details</summary>
+      <p>{main.exposureStudy?.enabled ? 'Twilight exposure study' : 'Daylight source reference'} · {sensor.name} · f/{fmt(main.lens.fNumber, 1)} · {fmt(main.exposureMs, 2)} ms.
+        Each lens sees the same pass instant with the finest loaded image that covers its footprint.</p>
+      <p>{capturedImagery || imageryId || imageryMessage}</p>
+      <p>{config.codec.toUpperCase()} · {config.resolution}p · {fmt(config.videoBitrateBps / 1e6, 2)} Mb/s at {config.fps} fps · {fmt(config.linkBitrateBps / 1e6, 2)} Mb/s link.
+        Each received view decodes a single keyframe sent through its own empty queue. Use Live link to evaluate motion.</p>
+    </details>
   </dialog>;
 }

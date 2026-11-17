@@ -172,7 +172,8 @@ export default function App() {
 
   const openComparison = () => {
     setPlaying(false); stopDownlink();
-    setComparisonFocals([scenario.cameras.find(item => item.id === 'main')!.lens.focalLengthMm, 100]);
+    const focal = scenario.cameras.find(item => item.id === 'main')!.lens.focalLengthMm;
+    setComparisonFocals([focal, Math.abs(focal - 100) < 1 ? 25 : 100]);
     setComparison({ scenario: structuredClone(scenario), timeS: time, config: structuredClone(downlink.config) });
   };
 
@@ -218,7 +219,7 @@ export default function App() {
         speed={speed} setSpeed={setSpeed} rangeM={sample.targetSlantRangeM} elevation={sample.targetElevationDeg} />
       {comparison && engine.current && <LensComparison snapshot={comparison} engine={engine.current}
         focalLengths={comparisonFocals} onFocalLengths={setComparisonFocals} onClose={() => { setComparison(null); setComparisonBusy(false); }} onBusy={setComparisonBusy}
-        imageryReady={Boolean(image)} imageryId={image?.id ?? ''} imageryMessage={progress.message} />}
+        imageryReady={progress.state === 'ready' || progress.state === 'error'} imageryId={image?.id ?? ''} imageryMessage={progress.message} />}
       {notice && <div className="status-notice" role="status" onClick={() => setNotice('')}>{notice}</div>}
     </main>
   );

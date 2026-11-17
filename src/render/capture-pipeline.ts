@@ -174,9 +174,9 @@ export function createCapturePipeline({
     canvas(id: CaptureCamera, w?: number, h?: number, pts?: number) {
       return enqueue(() => captureCanvas(id, w, h, pts));
     },
-    encoderFrame(id: CaptureCamera, w: number, h: number, captureUs: number, init: VideoFrameInit) {
+    encoderFrame(id: CaptureCamera, w: number, h: number, captureUs: number, init: VideoFrameInit, study?: CaptureOptions["study"]) {
       return enqueue(() => withRendererState(async () => {
-        drawCapture(id, w, h, captureUs);
+        drawCapture(id, w, h, captureUs, study);
         return encoderSurface.frame(captureTarget, init)
           ?? new VideoFrame(await readTarget(captureTarget, outputCanvas), init);
       }));

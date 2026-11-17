@@ -7,6 +7,7 @@ const frameClose = vi.fn();
 const encoderClose = vi.fn();
 const decoderClose = vi.fn();
 const draw = vi.fn();
+const getFrame = vi.fn(async () => ({ displayWidth: 1080, displayHeight: 1080, timestamp: 0, close: frameClose } as unknown as VideoFrame));
 function mocks() {
   vi.stubGlobal('document', { createElement: () => ({ width: 0, height: 0, getContext: () => ({ drawImage: draw }) }) });
   vi.stubGlobal('VideoFrame', class { close = frameClose; });
@@ -34,7 +35,9 @@ afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 describe('frozen keyframe comparison', () => {
   it('encodes and decodes actual frame objects and applies modeled serialization including decoder description', async () => {
     mocks();
-    const result = await decodeComparisonFrame({} as ImageBitmap, { ...DEFAULT_DOWNLINK_CONFIG }, new AbortController().signal);
+    const result = await decodeComparisonFrame(getFrame, { ...DEFAULT_DOWNLINK_CONFIG }, new AbortController().signal);
+    expect(getFrame).toHaveBeenCalledWith(1080, 1080, { timestamp: 0, duration: Math.round(1e6 / DEFAULT_DOWNLINK_CONFIG.fps) });
+    expect(draw).toHaveBeenCalledOnce(); // Only the decoded result is drawn to 2D.
     expect(result.image).toMatchObject({ width: 1080, height: 1080 });
     expect(result.bytes).toBe(1220);
     expect(result.arrivalMs).toBeCloseTo(1220 * 8000 / DEFAULT_DOWNLINK_CONFIG.linkBitrateBps + DEFAULT_DOWNLINK_CONFIG.propagationMs);
@@ -44,17 +47,30 @@ describe('frozen keyframe comparison', () => {
   });
   it('reports queue rejection without pretending that a frame was decoded', async () => {
     mocks();
-    const result = await decodeComparisonFrame({} as ImageBitmap, { ...DEFAULT_DOWNLINK_CONFIG, linkBitrateBps: 1 }, new AbortController().signal);
+    const result = await decodeComparisonFrame(getFrame, { ...DEFAULT_DOWNLINK_CONFIG, linkBitrateBps: 1 }, new AbortController().signal);
     expect(result.dropped).toBe('queue');
     expect(result.image).toBeUndefined();
     expect(decoderClose).not.toHaveBeenCalled();
     expect(frameClose).toHaveBeenCalledOnce();
     expect(encoderClose).toHaveBeenCalledOnce();
   });
+  it('closes a returned frame if cancelled while GPU capture was pending', async () => {
+    mocks();
+    const cancel = new AbortController();
+    const capture = async () => {
+      cancel.abort();
+      return { displayWidth: 1080, displayHeight: 1080, timestamp: 0, close: frameClose } as unknown as VideoFrame;
+    };
+    await expect(decodeComparisonFrame(capture, { ...DEFAULT_DOWNLINK_CONFIG }, cancel.signal)).rejects.toThrow();
+    expect(frameClose).toHaveBeenCalledOnce();
+    expect(encoderClose).toHaveBeenCalledOnce();
+    expect(decoderClose).not.toHaveBeenCalled();
+  });
   it('does no capture work after cancellation during the codec probe', async () => {
     mocks();
     const cancel = new AbortController(); cancel.abort();
-    await expect(decodeComparisonFrame({} as ImageBitmap, { ...DEFAULT_DOWNLINK_CONFIG }, cancel.signal)).rejects.toThrow();
+    await expect(decodeComparisonFrame(getFrame, { ...DEFAULT_DOWNLINK_CONFIG }, cancel.signal)).rejects.toThrow();
     expect(draw).not.toHaveBeenCalled();
+    expect(getFrame).not.toHaveBeenCalled();
   });
 });

@@ -543,8 +543,8 @@ export async function createImagingEngine(
           }
         }
       },
-      getEncoderFrame(id, w, h, captureUs, init) {
-        return captures.encoderFrame(id, w, h, captureUs, init);
+      getEncoderFrame(id, w, h, captureUs, init, study) {
+        return captures.encoderFrame(id, w, h, captureUs, init, study);
       },
       getEncoderCanvas(id, w, h, pts) {
         return captures.canvas(id, w, h, pts);

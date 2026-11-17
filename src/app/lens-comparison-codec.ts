@@ -10,15 +10,15 @@ export interface ComparisonDecode {
   dropped?: string;
 }
 
+/** Return the requested GPU-rendered frame; ownership transfers to this helper. */
+export type ComparisonFrameSource = (width: number, height: number, init: VideoFrameInit) => Promise<VideoFrame>;
+
 /** Independent single-keyframe experiment, starting with an empty link queue. */
-export async function decodeComparisonFrame(source: ImageBitmap, config: DownlinkConfig, signal: AbortSignal): Promise<ComparisonDecode> {
+export async function decodeComparisonFrame(getFrame: ComparisonFrameSource, config: DownlinkConfig, signal: AbortSignal): Promise<ComparisonDecode> {
   const support = await probeDownlink({ ...config, program: 'main' }, signal);
   if (!support.supported) throw new Error(support.reason);
   signal.throwIfAborted();
   const stream = support.streams[0];
-  const input = document.createElement('canvas');
-  input.width = stream.width; input.height = stream.height;
-  input.getContext('2d')!.drawImage(source, 0, 0, input.width, input.height);
   let encoder: VideoEncoder | undefined;
   let decoder: VideoDecoder | undefined;
   let codecError: Error | undefined;
@@ -33,8 +33,14 @@ export async function decodeComparisonFrame(source: ImageBitmap, config: Downlin
     const work = async () => {
       encoder = new VideoEncoder({ output(chunk, metadata) { chunks.push(chunk); if (metadata?.decoderConfig) decoderConfig = metadata.decoderConfig; }, error(error) { codecError = error; } });
       encoder.configure(stream.encoderConfig);
-      const frame = new VideoFrame(input, { timestamp: 0, duration: Math.round(1e6 / config.fps) });
-      try { encoder.encode(frame, { keyFrame: true }); } finally { frame.close(); }
+      const frame = await getFrame(stream.width, stream.height, { timestamp: 0, duration: Math.round(1e6 / config.fps) });
+      try {
+        signal.throwIfAborted();
+        if (frame.displayWidth !== stream.width || frame.displayHeight !== stream.height || frame.timestamp !== 0) {
+          throw new Error('Comparison capture returned unexpected dimensions or timestamp.');
+        }
+        encoder.encode(frame, { keyFrame: true });
+      } finally { frame.close(); }
       await encoder.flush();
       signal.throwIfAborted();
       if (codecError) throw codecError;
@@ -61,6 +67,5 @@ export async function decodeComparisonFrame(source: ImageBitmap, config: Downlin
     return await Promise.race([work(), deadline]);
   } finally {
     clearTimeout(timer); signal.removeEventListener('abort', abort); abort();
-    input.width = input.height = 1;
   }
 }

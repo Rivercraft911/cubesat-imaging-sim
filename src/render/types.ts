@@ -48,7 +48,7 @@ export interface ImagingEngine {
   resize(width: number, height: number, dpr?: number): void;
   render(): void;
   capture(options?: CaptureOptions): Promise<Blob>;
-  getEncoderFrame(id: CaptureCamera, width: number, height: number, captureUs: number, init: VideoFrameInit): Promise<VideoFrame>;
+  getEncoderFrame(id: CaptureCamera, width: number, height: number, captureUs: number, init: VideoFrameInit, study?: CaptureOptions["study"]): Promise<VideoFrame>;
   getEncoderCanvas(
     cameraId: CaptureCamera,
     width?: number,
