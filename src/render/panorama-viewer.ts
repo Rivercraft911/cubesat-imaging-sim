@@ -38,6 +38,7 @@ export function createPanoramaViewer(
   const receivedNode = texture(placeholder);
   let received: THREE.CanvasTexture | null = null,
     receivedCanvas: HTMLCanvasElement | null = null;
+  let receivedWidth = 0, receivedHeight = 0;
   let fov = 90,
     projection: "perspective" | "equirectangular" = "perspective",
     dragging = false,
@@ -121,9 +122,14 @@ export function createPanoramaViewer(
       onChange();
     },
     setReceived(image: HTMLCanvasElement | null) {
-      if (image !== receivedCanvas) {
+      // A live encoder can resize the same receiver canvas. GPU texture storage
+      // cannot follow that mutation; recreate it instead of leaving old pixels.
+      if (image !== receivedCanvas || (image !== null
+        && (image.width !== receivedWidth || image.height !== receivedHeight))) {
         received?.dispose();
         receivedCanvas = image;
+        receivedWidth = image?.width ?? 0;
+        receivedHeight = image?.height ?? 0;
         received = image ? new THREE.CanvasTexture(image) : null;
         if (received) {
           received.colorSpace = THREE.SRGBColorSpace;
