@@ -6,9 +6,27 @@
     <meta name="theme-color" content="#111211" />
     <meta name="description" content="A CubeSat imaging workbench. Optics, orbital views, and the video that makes it home." />
     <title>Field of View — CubeSat Imaging</title>
+    <link rel="stylesheet" href="/src/startup/preview.css" />
   </head>
   <body>
+    <main id="launch" class="launch" aria-labelledby="launch-title">
+      <div class="launch-content">
+        <p class="launch-team">Stanford SSI · CubeSat imaging</p>
+        <h1 id="launch-title">Field of View</h1>
+        <p id="launch-note" role="status">Open on a laptop or desktop with WebGPU to run the simulator.</p>
+        <div class="launch-actions" hidden>
+          <button type="button" id="copy-link">Copy simulator link</button>
+          <button type="button" id="try-simulator">Try on this device</button>
+        </div>
+        <input id="share-url" aria-label="Simulator link" type="url" readonly hidden />
+        <details id="launch-detail" hidden><summary>Technical details</summary><p></p></details>
+      </div>
+      <figure id="launch-photo" hidden>
+        <img width="640" height="640" alt="Simulated overhead view of Stanford and the southern San Francisco Bay" />
+        <figcaption><span>Stanford · simulated daylight pass</span><span>550 km / 100 mm</span></figcaption>
+      </figure>
+    </main>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/startup/launch.ts"></script>
   </body>
 </html>

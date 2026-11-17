@@ -21,7 +21,7 @@ import { useImagery } from './useImagery';
 import { editCamera } from '../sim/camera-edit';
 import { DEFAULT_SOURCE_SELECTION, displaySelection, selectSourceCamera } from './view-selection';
 
-export default function App() {
+export default function App({ onRendererFailure }: { onRendererFailure: (message: string) => void }) {
   const [scenario, setScenario] = useState<Scenario>(() => applyStanfordPassPreset(createDefaultScenario(), 'terminator'));
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -42,7 +42,7 @@ export default function App() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const host = useRef<HTMLDivElement>(null);
 
-  const { engine, status, version } = useEngine(canvas, host);
+  const { engine, status, version } = useEngine(canvas, host, onRendererFailure);
   const advanceDownlink = useCallback((timeS: number) => setTime(Math.min(timeS, PASS_END_S)), []);
   const receivedFrame = useRef<{ canvas: HTMLCanvasElement | null; receiver: 'main' | '360' }>({ canvas: null, receiver: 'main' });
   const currentFeed = useRef(feed);
