@@ -1,5 +1,5 @@
 import * as THREE from "three/webgpu";
-import { contains, shotBounds, type Bounds } from "../imagery/bounds";
+import { contains, shotBounds } from "../imagery/bounds";
 import { bindSensorCamera, bindPanoramaCameras } from "./camera-bindings";
 import { InitializationScope } from "./initialization";
 import { loadEarthTextures } from "./earth-textures";
@@ -14,6 +14,7 @@ import {
 import type { CameraConfig, CameraId, Scenario } from "../sim/types";
 import type {
   CaptureOptions,
+  GroundImage,
   EngineStatus,
   ImagingEngine,
   RenderView,
@@ -99,7 +100,8 @@ export async function createImagingEngine(
       dirty = true;
     let spaceVisited = false,
       panoramaVisited = false;
-    let detailBounds: Bounds | null = null;
+    let currentDetail: GroundImage | null = null;
+    let currentBase: GroundImage | null = null;
     let sceneRevision = 0,
       groundRevision = 0;
     const space = initialization.own(
@@ -388,7 +390,7 @@ export async function createImagingEngine(
               timeS = study.timeS;
               sample = sampleState(scenario, timeS);
               // A telephoto crop can be resident while a wider lens is being compared.
-              if (detailBounds && !contains(detailBounds, shotBounds(scenario, timeS))) {
+              if (currentDetail && !contains(currentDetail.boundsMercator, shotBounds(scenario, timeS))) {
                 sensor.u.hasGround.value = 0;
               }
               sceneRevision++;
@@ -445,13 +447,16 @@ export async function createImagingEngine(
       },
       getGroundRevision: () => groundRevision,
       setGroundImage(image) {
+        if (image === currentDetail) return;
         groundLayers.setDetail(image);
-        detailBounds = image?.boundsMercator ?? null;
+        currentDetail = image;
         groundRevision++;
         dirty = true;
       },
       setBaseGroundImage(image) {
+        if (image === currentBase) return;
         groundLayers.setBase(image);
+        currentBase = image;
         groundRevision++;
         dirty = true;
       },

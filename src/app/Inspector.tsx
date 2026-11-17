@@ -1,3 +1,6 @@
+import { applyStanfordPassPreset, orbitalBetaDeg } from '../sim/pass-presets';
+import { sampleState } from '../sim/orbit';
+import { TwilightSettings } from './TwilightSettings';
 import { getSensor, SENSOR_PROFILES } from '../sim';
 import type { CameraConfig, CameraId, Lens, Pointing, Projection, Scenario, Vec3 } from '../sim';
 import { fmt, NumberField, SelectField } from './fields';
@@ -7,6 +10,7 @@ type InspectorProps = {
   section: 'optics' | 'orbit' | 'geometry';
   scenario: Scenario;
   onChange: (scenario: Scenario) => void;
+  onSelectPass: (scenario: Scenario) => void;
   cameraId: CameraId;
 };
 
@@ -62,15 +66,22 @@ function Optics({ camera, scenario, onChange, onCameraChange }: CameraSettings) 
       <NumberField label="Frame readout" unit="ms" value={camera.readoutMs} min={0} max={100000} step={0.1} digits={3} onChange={readoutMs => onCameraChange({ readoutMs })} />
       <NumberField label="Extra blur σ" unit="px" value={lens.extraBlurPx} min={0} max={1000} step={0.1} onChange={extraBlurPx => changeLens({ extraBlurPx })} />
     </div>
+    {camera.id === 'main' && <TwilightSettings camera={camera} onChange={onCameraChange} />}
     <p className="note">Diffraction uses 550 nm light. Smear describes motion at the image center. Frame readout is saved as metadata.</p>
   </>;
 }
 
-function Orbit({ scenario, onChange }: ScenarioSettings) {
+function Orbit({ scenario, onChange, onSelectPass }: ScenarioSettings & Pick<InspectorProps, 'onSelectPass'>) {
   const update = (change: Partial<Scenario>) => onChange({ ...scenario, ...change });
 
   return <>
     <h2 className="section-heading">Orbit and attitude</h2>
+    <div className="field-grid">
+      <button type="button" onClick={() => onSelectPass(applyStanfordPassPreset(scenario, 'terminator'))}>Stanford terminator pass</button>
+      <button type="button" onClick={() => onSelectPass(applyStanfordPassPreset(scenario, 'daylight'))}>Stanford daylight overhead</button>
+    </div>
+    <p className="note">Terminator selects the closest orbital alignment in 2026. Daylight puts closest approach at solar noon on the selected date.</p>
+    <p className="note">At closest approach · solar elevation {fmt(sampleState(scenario).sunElevationDeg, 2)}° at {scenario.target.name} · orbital |β| {fmt(orbitalBetaDeg(scenario), 2)}° (90° follows the terminator).</p>
     <div className="field-grid">
       <NumberField label="Orbit altitude" unit="km" value={scenario.altitudeM / 1000} min={100} max={2000} onChange={km => update({ altitudeM: km * 1000 })} />
       <NumberField label="Lateral pass offset" unit="km" value={scenario.passOffsetKm} min={-1500} max={1500} onChange={passOffsetKm => update({ passOffsetKm })} />
@@ -148,12 +159,12 @@ function Geometry({ camera, scenario, onChange, onCameraChange }: CameraSettings
   </>;
 }
 
-export function Inspector({ section, scenario, onChange, cameraId }: InspectorProps) {
+export function Inspector({ section, scenario, onChange, onSelectPass, cameraId }: InspectorProps) {
   const camera = scenario.cameras.find(config => config.id === cameraId);
   const onCameraChange = (change: Partial<CameraConfig>) => onChange(editCamera(scenario, cameraId, change));
 
   return <div className="inspector-content" key={section === 'orbit' ? section : `${section}-${cameraId}`}>
-    {section === 'orbit' && <Orbit scenario={scenario} onChange={onChange} />}
+    {section === 'orbit' && <Orbit scenario={scenario} onChange={onChange} onSelectPass={onSelectPass} />}
     {section === 'optics' && camera && <Optics camera={camera} scenario={scenario} onChange={onChange} onCameraChange={onCameraChange} />}
     {section === 'geometry' && camera && <Geometry camera={camera} scenario={scenario} onChange={onChange} onCameraChange={onCameraChange} />}
   </div>;

@@ -1,3 +1,5 @@
+import { applyStanfordPassPreset } from '../sim/pass-presets';
+import { LensComparison, withMainFocalLength, type ComparisonSnapshot } from './LensComparison';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   computeMetrics, createDefaultScenario, getSensor, parseScenario, sampleState,
@@ -19,7 +21,7 @@ import { useImagery } from './useImagery';
 import { editCamera } from '../sim/camera-edit';
 
 export default function App() {
-  const [scenario, setScenario] = useState<Scenario>(createDefaultScenario);
+  const [scenario, setScenario] = useState<Scenario>(() => applyStanfordPassPreset(createDefaultScenario(), 'terminator'));
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
@@ -32,6 +34,9 @@ export default function App() {
   const [panel, setPanel] = useState<Panel | null>(null);
   const [notice, setNotice] = useState('');
   const [capturing, setCapturing] = useState(false);
+  const [comparison, setComparison] = useState<ComparisonSnapshot | null>(null);
+  const [comparisonBusy, setComparisonBusy] = useState(false);
+  const [comparisonFocals, setComparisonFocals] = useState<[number, number]>([25, 100]);
   const [feed, setFeed] = useState<Feed>('source');
   const canvas = useRef<HTMLCanvasElement>(null);
   const host = useRef<HTMLDivElement>(null);
@@ -52,7 +57,8 @@ export default function App() {
   const linkStart = liveLinkStartAvailability(time, status.ready);
   const received = linkActive && feed === 'received';
   const displayView = received ? (downlink.receiver === '360' ? 'panorama' : 'image') : view;
-  const { image, baseImage, progress } = useImagery(engine, version, scenario, time);
+  const imageryScenario = useMemo(() => comparison ? withMainFocalLength(comparison.scenario, Math.max(...comparisonFocals)) : scenario, [comparison, comparisonFocals, scenario]);
+  const { image, baseImage, progress } = useImagery(engine, version, imageryScenario, comparison?.timeS ?? time, comparisonBusy);
 
   const activeCameraId = received ? downlink.receiver === 'main' ? 'main' : 'wideA' : cameraId;
   const camera = scenario.cameras.find(item => item.id === activeCameraId)!;
@@ -164,6 +170,12 @@ export default function App() {
     }
   };
 
+  const openComparison = () => {
+    setPlaying(false); stopDownlink();
+    setComparisonFocals([scenario.cameras.find(item => item.id === 'main')!.lens.focalLengthMm, 100]);
+    setComparison({ scenario: structuredClone(scenario), timeS: time, config: structuredClone(downlink.config) });
+  };
+
   const selectView = (next: RenderView) => {
     setFeed('source'); setView(next);
     if (next === 'panorama' || (next === 'space' && cameraId === 'wideB')) setCameraId('wideA');
@@ -179,7 +191,7 @@ export default function App() {
   return (
     <main className="instrument">
       <Masthead view={displayView} onViewChange={selectView} onImport={importScenario} onSave={save}
-        onCapture={capture} ready={status.ready} capturing={capturing}
+        onCapture={capture} onCompare={openComparison} ready={status.ready} capturing={capturing}
         openLiveLink={() => setPanel('downlink')} liveLinkOpen={panel === 'downlink'}
         liveLinkRunning={downlink.state === 'receiving'} />
       <div className={`workspace ${panel ? 'has-inspector' : ''}`}>
@@ -194,7 +206,7 @@ export default function App() {
         {panel !== 'downlink' && <LinkStrip downlink={downlink} controls={linkControls}
           onOpenSettings={() => setPanel('downlink')} />}
         {panel && <InspectorDrawer panel={panel} scenario={scenario} cameraId={activeCameraId}
-          onChange={change} onClose={() => setPanel(null)} onPanel={setPanel}
+          onChange={change} onSelectPass={next => { stopDownlink(); setPlaying(false); setTime(0); change(next); }} onClose={() => setPanel(null)} onPanel={setPanel}
           downlink={linkStart.message && !linkActive ? { ...downlink, error: linkStart.message } : downlink}
           linkControls={linkControls} ready={linkStart.enabled} />}
       </div>
@@ -204,6 +216,9 @@ export default function App() {
         onPanel={id => setPanel(current => current === id ? null : id)} />
       <Timeline time={time} onFrameTime={setTime} onSeek={scrubTime} playing={playing && !linkActive} setPlaying={changePlayback}
         speed={speed} setSpeed={setSpeed} rangeM={sample.targetSlantRangeM} elevation={sample.targetElevationDeg} />
+      {comparison && engine.current && <LensComparison snapshot={comparison} engine={engine.current}
+        focalLengths={comparisonFocals} onFocalLengths={setComparisonFocals} onClose={() => { setComparison(null); setComparisonBusy(false); }} onBusy={setComparisonBusy}
+        imageryReady={Boolean(image)} imageryId={image?.id ?? ''} imageryMessage={progress.message} />}
       {notice && <div className="status-notice" role="status" onClick={() => setNotice('')}>{notice}</div>}
     </main>
   );

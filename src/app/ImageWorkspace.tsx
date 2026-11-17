@@ -86,6 +86,9 @@ export function ImageWorkspace({
       </div>
       <div className="target-heading">
         <span className="target-label">{target.name}</span>
+        {view === 'image' && camera.id === 'main' && <small className="image-model-label">
+          {camera.exposureStudy?.enabled ? 'Exposure study' : 'Daylight reference'}
+        </small>}
       </div>
       <div className="image-tools">
         {view === 'space' && <div className="inspection-buttons"><button onClick={resetSpaceView}>Frame spacecraft</button></div>}
@@ -160,9 +163,9 @@ export function ImageWorkspace({
             {view === 'panorama' && <p>The viewer looks into a 360° image. Export saves a 4096 × 2048 equirectangular PNG; changing the view angle does not change the camera lenses.</p>}
             <p>{view === 'image' && camera.id === 'main'
               ? camera.exposureStudy?.enabled
-                ? 'Twilight exposure study: actual Sun direction, assumed diffuse light and sensitivity. Source photos are reflectance proxies; this is not a calibrated night-performance prediction.'
+                ? 'Twilight brightness uses the local Sun angle and the diffuse light and camera response specified in Camera settings.'
                 : sample.sunElevationDeg < 0
-                ? 'The target is below the solar horizon. Source-normalized daylight imagery does not predict night performance.'
+                ? 'The Sun is below the target horizon. This reference preserves the daylight photograph. Choose Twilight exposure study in Camera settings to model this pass.'
                 : 'Source-normalized daylight imagery. Optics are uncalibrated; dimensions are provisional.'
               : 'Illustrative Sun, cloud and limb lighting. Brightness is not calibrated radiometry.'}</p>
             {view === 'panorama' && <p>The angular stitch does not correct nearby spacecraft parallax.</p>}

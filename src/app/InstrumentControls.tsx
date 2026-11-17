@@ -45,11 +45,12 @@ export function OpticalControls({ camera, cameras, panel, pairedView, onCamera, 
   );
 }
 
-export function InspectorDrawer({ panel, scenario, cameraId, onChange, onClose, onPanel, downlink, linkControls, ready }: {
+export function InspectorDrawer({ panel, scenario, cameraId, onChange, onSelectPass, onClose, onPanel, downlink, linkControls, ready }: {
   panel: Panel;
   scenario: Scenario;
   cameraId: CameraId;
   onChange: (scenario: Scenario) => void;
+  onSelectPass: (scenario: Scenario) => void;
   onClose: () => void;
   onPanel: (panel: Panel) => void;
   downlink: ReturnType<typeof useDownlink>;
@@ -79,7 +80,7 @@ export function InspectorDrawer({ panel, scenario, cameraId, onChange, onClose, 
             Rate assumes successful demodulation, 20% roll-off and 10% application reserve; RF lock is not simulated.
           </p>
         </div>
-      ) : <Inspector section={panel} scenario={scenario} onChange={onChange} cameraId={cameraId} />}
+      ) : <Inspector section={panel} scenario={scenario} onChange={onChange} onSelectPass={onSelectPass} cameraId={cameraId} />}
     </aside>
   );
 }

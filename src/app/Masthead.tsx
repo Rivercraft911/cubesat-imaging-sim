@@ -9,13 +9,14 @@ const views: { id: RenderView; label: string }[] = [
 ];
 
 export function Masthead({
-  view, onViewChange, onImport, onSave, onCapture, ready, capturing, openLiveLink, liveLinkOpen, liveLinkRunning,
+  view, onViewChange, onImport, onSave, onCapture, onCompare, ready, capturing, openLiveLink, liveLinkOpen, liveLinkRunning,
 }: {
   view: RenderView;
   onViewChange: (view: RenderView) => void;
   onImport: (file: File) => Promise<void>;
   onSave: () => void;
   onCapture: () => Promise<void>;
+  onCompare: () => void;
   ready: boolean;
   capturing: boolean;
   openLiveLink: () => void;
@@ -32,6 +33,10 @@ export function Masthead({
         <summary aria-label="Scenario menu" title="Scenario menu"><Icon name="menu" /></summary>
         <div className="menu-content">
           <strong>Field of View</strong>
+          <button className="compact-compare" disabled={!ready || capturing} onClick={() => {
+            if (menu.current) menu.current.open = false;
+            onCompare();
+          }}>Compare lenses</button>
           <button onClick={() => { fileInput.current?.click(); if (menu.current) menu.current.open = false; }}>Open scenario…</button>
           <button onClick={() => { onSave(); if (menu.current) menu.current.open = false; }}>Save scenario</button>
         </div>
@@ -43,6 +48,7 @@ export function Masthead({
         ))}
       </nav>
       <div className="capture-actions">
+        <button className="compare-button" onClick={onCompare} disabled={!ready || capturing}>Compare lenses</button>
         <button className={`live-link-button ${liveLinkRunning ? 'running' : ''}`}
           aria-expanded={liveLinkOpen} aria-controls="settings-drawer" onClick={openLiveLink}>
           {liveLinkRunning ? 'Link running' : 'Live link'}
