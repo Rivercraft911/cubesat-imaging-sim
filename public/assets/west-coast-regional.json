@@ -1,0 +1,142 @@
+{
+  "id": "nasa-terra-modis-west-coast-2025-03-25",
+  "file": "west-coast-regional.webp",
+  "publisher": "NASA Earthdata Global Imagery Browse Services (GIBS)",
+  "credit": "NASA GIBS / Terra MODIS true color, 2025-03-25 UTC",
+  "license": "NASA open data and imagery with acknowledgment",
+  "license_url": "https://www.nasa.gov/nasa-brand-center/images-and-media/",
+  "license_source": "https://nasa-gibs.github.io/gibs-api-docs/#data-use-guidance-and-acknowledgements",
+  "publisher_page": "https://nasa-gibs.github.io/gibs-api-docs/access-basics/",
+  "source_layer": "MODIS_Terra_CorrectedReflectance_TrueColor",
+  "source_tile_matrix": "250m",
+  "acquisition_date_utc": "2025-03-25",
+  "retrieved_utc": "2026-11-17T10:40:11.737586+00:00",
+  "runtime_dimensions": [
+    8192,
+    8192
+  ],
+  "crs": "EPSG:4326",
+  "bounds_deg": {
+    "west": -130.66666666666666,
+    "east": -113.6,
+    "south": 29.1,
+    "north": 46.166666666666664
+  },
+  "angular_pixel_spacing_deg": [
+    0.002083333333333333,
+    0.002083333333333333
+  ],
+  "center_pixel_spacing_m": {
+    "east_west": 183.89161261806876,
+    "north_south": 231.22822861080516
+  },
+  "transform": "Four WMS-rendered RGB quadrants pasted on a common north-up grid. No local resampling or color changes. WebP quality 90, method 4.",
+  "limits": "Daily true-color browse imagery includes observed clouds, atmosphere and Terra granule geometry. An acquisition join is visible at the far northwest edge. The reported pixel spacing describes the served display grid resampled from the nominal 250 m GIBS product.",
+  "source_quadrants": [
+    {
+      "name": "northwest",
+      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&SRS=EPSG%3A4326&BBOX=-130.66666666666666%2C37.63333333333333%2C-122.13333333333333%2C46.166666666666664&TIME=2025-03-25&WIDTH=4096&HEIGHT=4096&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
+      "bounds_lon_lat_deg": [
+        -130.66666666666666,
+        37.63333333333333,
+        -122.13333333333333,
+        46.166666666666664
+      ],
+      "bytes": 24795645,
+      "sha256": "20dac96886de68fa57561da32f8d59c8bc7d2d51fb23e1611e3160f60165da19",
+      "etag": null
+    },
+    {
+      "name": "northeast",
+      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&SRS=EPSG%3A4326&BBOX=-122.13333333333333%2C37.63333333333333%2C-113.6%2C46.166666666666664&TIME=2025-03-25&WIDTH=4096&HEIGHT=4096&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
+      "bounds_lon_lat_deg": [
+        -122.13333333333333,
+        37.63333333333333,
+        -113.6,
+        46.166666666666664
+      ],
+      "bytes": 35681395,
+      "sha256": "ce9e3d2f9b4a33ce12fa69a2fba5e6efa9122df895884fe3af8e9dc804c033fa",
+      "etag": null
+    },
+    {
+      "name": "southwest",
+      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&SRS=EPSG%3A4326&BBOX=-130.66666666666666%2C29.1%2C-122.13333333333333%2C37.63333333333333&TIME=2025-03-25&WIDTH=4096&HEIGHT=4096&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
+      "bounds_lon_lat_deg": [
+        -130.66666666666666,
+        29.1,
+        -122.13333333333333,
+        37.63333333333333
+      ],
+      "bytes": 22916627,
+      "sha256": "c47a2b2081bda75bb3768536869bc905541ad435e7f844dc68b60cedeb52056a",
+      "etag": null
+    },
+    {
+      "name": "southeast",
+      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&STYLES=&SRS=EPSG%3A4326&BBOX=-122.13333333333333%2C29.1%2C-113.6%2C37.63333333333333&TIME=2025-03-25&WIDTH=4096&HEIGHT=4096&FORMAT=image%2Fpng&TRANSPARENT=TRUE",
+      "bounds_lon_lat_deg": [
+        -122.13333333333333,
+        29.1,
+        -113.6,
+        37.63333333333333
+      ],
+      "bytes": 28684980,
+      "sha256": "35647ce27680438f44d30179ebc9e3ca125c3f23e01b470a566735d8754f1243",
+      "etag": null
+    }
+  ],
+  "coverage_samples": {
+    "offshore_pacific": {
+      "lon_lat_deg": [
+        -128.0,
+        37.7
+      ],
+      "rgb_before_webp": [
+        85,
+        98,
+        106
+      ]
+    },
+    "coastal_pacific": {
+      "lon_lat_deg": [
+        -123.2,
+        37.7
+      ],
+      "rgb_before_webp": [
+        6,
+        13,
+        19
+      ]
+    },
+    "san_francisco_bay": {
+      "lon_lat_deg": [
+        -122.4,
+        37.835
+      ],
+      "rgb_before_webp": [
+        16,
+        34,
+        22
+      ]
+    },
+    "stanford": {
+      "lon_lat_deg": [
+        -122.1697,
+        37.4275
+      ],
+      "rgb_before_webp": [
+        88,
+        80,
+        57
+      ]
+    }
+  },
+  "exact_black_pixels_before_webp": 6,
+  "runtime_bytes": 10351724,
+  "runtime_sha256": "547b97b24855295c89db82ffffb066002321116e4eb9d3ce4811af8798d093fd",
+  "software": {
+    "pillow": "11.2.1",
+    "libwebp": "1.5.0"
+  }
+}
