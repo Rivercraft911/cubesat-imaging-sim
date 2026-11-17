@@ -194,6 +194,7 @@ type PreparedImage = Omit<GroundImage, "image"> & {
   transparentPixels?: number;
 };
 const PREPARED_INDEX_TIMEOUT_MS = 3000;
+const PREPARED_RASTER_TIMEOUT_MS = 20_000;
 let preparedIndex: Promise<PreparedImage[]> | undefined;
 
 async function awaitPreparedIndex(signal: AbortSignal): Promise<PreparedImage[]> {
@@ -243,10 +244,16 @@ export async function preparedShot(
     )
     .sort((a, b) => a.sourceResolutionM - b.sourceResolutionM)[0];
   if (!entry) return null;
-  const response = await fetch(publicAsset(`shots/${entry.file}`), { signal });
+  const downloadSignal = AbortSignal.any([
+    signal,
+    AbortSignal.timeout(PREPARED_RASTER_TIMEOUT_MS),
+  ]);
+  const response = await fetch(publicAsset(`shots/${entry.file}`), {
+    signal: downloadSignal,
+  });
   if (!response.ok) throw new Error("Prepared imagery unavailable");
   const blob = await response.blob();
-  signal.throwIfAborted();
+  downloadSignal.throwIfAborted();
   const [west, south, east, north] = entry.boundsMercator;
   const dx = (east - west) / entry.width,
     dy = (north - south) / entry.height;
