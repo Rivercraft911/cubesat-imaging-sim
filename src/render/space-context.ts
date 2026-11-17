@@ -56,24 +56,35 @@ export async function createSpaceContext(
     currentSample = sample,
     currentScenario = scenario;
   const shipScene = new THREE.Scene();
-  const environment = new EarthEnvironment();
+  const environment = new EarthEnvironment(day);
   shipScene.environment = environment.texture;
   let ship = makeSpacecraft(scenario);
   shipScene.add(ship);
   let guides = createCameraGuides(scenario, null, ship);
   shipScene.add(guides);
-  let radius = new THREE.Box3()
-    .setFromObject(ship)
-    .getBoundingSphere(new THREE.Sphere()).radius;
+  function originRadius(group: THREE.Group) {
+    const sphere = new THREE.Box3().setFromObject(group).getBoundingSphere(new THREE.Sphere());
+    return sphere.center.length() + sphere.radius;
+  }
+  let radius = originRadius(ship);
+  let guideExtent = radius;
+  function updateGuideExtent() {
+    guideExtent = Math.max(radius, originRadius(guides));
+  }
+  const cameraOrigin = new THREE.Vector3();
   const sunLight = new THREE.DirectionalLight(0xffffff, 3.0);
   sunLight.castShadow = true;
   sunLight.shadow.mapSize.set(1024, 1024);
-  sunLight.shadow.camera.left = -0.24;
-  sunLight.shadow.camera.right = 0.24;
-  sunLight.shadow.camera.top = 0.24;
-  sunLight.shadow.camera.bottom = -0.24;
-  sunLight.shadow.camera.near = 8;
-  sunLight.shadow.camera.far = 12;
+  function fitSolarShadow() {
+    const bound = radius * 1.05;
+    const camera = sunLight.shadow.camera;
+    camera.left = camera.bottom = -bound;
+    camera.right = camera.top = bound;
+    camera.near = Math.max(0.001, 10 - bound);
+    camera.far = 10 + bound;
+    camera.updateProjectionMatrix();
+  }
+  fitSolarShadow();
   sunLight.shadow.bias = -0.000025;
   sunLight.shadow.normalBias = 0.0001;
   sunLight.shadow.autoUpdate = false;
@@ -268,7 +279,8 @@ export async function createSpaceContext(
     if (changed) {
       // Measure in the body frame, independent of the current orbital attitude.
       ship.quaternion.identity();
-      radius = new THREE.Box3().setFromObject(ship).getBoundingSphere(new THREE.Sphere()).radius;
+      radius = originRadius(ship);
+      fitSolarShadow();
       controls.minDistance = radius * 1.12;
       controls.maxDistance = radius * 25;
       shipKey = nextGeometry;
@@ -276,6 +288,7 @@ export async function createSpaceContext(
     }
     // Lens/FOV edits do not rebuild CAD but must update the inspection guides.
     updateCameraGuides(guides, scenario, selected, ship);
+    if (changed || scenario !== currentScenario) updateGuideExtent();
     guides.quaternion.fromArray(sample.qEcefFromBody);
     ship.quaternion.fromArray(sample.qEcefFromBody);
     ship.updateMatrixWorld(true);
@@ -300,6 +313,7 @@ export async function createSpaceContext(
 
   return {
     shipScene,
+    get spacecraft() { return ship; },
     sensorAerial,
     setSensorPose(pose: CameraPose, sample: SimulationSample) {
       sensorCamera.position
@@ -348,6 +362,7 @@ export async function createSpaceContext(
       selected = id;
       setSpacecraftCameraHighlight(ship, id);
       updateCameraGuides(guides, currentScenario, selected, ship);
+      updateGuideExtent();
     },
     setSurface(node: THREE.MeshStandardNodeMaterial["colorNode"]) {
       planetMaterial.colorNode = node;
@@ -367,6 +382,13 @@ export async function createSpaceContext(
       renderer.render(planetScene, planetCamera);
       renderer.autoClear = false;
       renderer.clearDepth();
+      // The observer can pan off center. Bound visible depth along its actual
+      // forward axis to resolve board coatings and hardware during orbit/zoom.
+      spaceCamera.updateMatrixWorld();
+      const centerDepth = -cameraOrigin.set(0, 0, 0).applyMatrix4(spaceCamera.matrixWorldInverse).z;
+      spaceCamera.near = Math.max(0.0001, centerDepth - guideExtent * 1.05);
+      spaceCamera.far = Math.max(spaceCamera.near + radius, centerDepth + guideExtent * 1.05);
+      spaceCamera.updateProjectionMatrix();
       renderer.render(shipScene, spaceCamera);
       renderer.autoClear = true;
     },

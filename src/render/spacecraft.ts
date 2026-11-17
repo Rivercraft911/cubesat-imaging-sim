@@ -11,6 +11,50 @@ function standard(color: THREE.ColorRepresentation, metalness: number, roughness
   return new THREE.MeshStandardMaterial({ color, metalness, roughness });
 }
 
+/** Area coverage of the 25 µm fingers and 80 µm busbars on an 80 × 40 mm
+ * reference cell. Mipmaps preserve their average reflectance under minification. */
+function cellAlbedo() {
+  const width = 1024, height = 512;
+  const pixels = new Uint8Array(width * height * 4);
+  const base = new THREE.Color(0.0035, 0.004, 0.008);
+  const metal = new THREE.Color(0.22, 0.20, 0.16);
+  const palette = Array.from({ length: 256 }, (_, i) => {
+    const rgb = base.clone().lerp(metal, i / 255).convertLinearToSRGB();
+    return [Math.round(255 * rgb.r), Math.round(255 * rgb.g), Math.round(255 * rgb.b)];
+  });
+  const border = 0.017;
+  function stripeCoverage(pixel: number, center: number, halfWidth: number) {
+    return Math.max(0, Math.min(pixel + 1, center + halfWidth) - Math.max(pixel, center - halfWidth));
+  }
+  for (let y = 0; y < height; y++) {
+    const v = (y + 0.5) / height;
+    const finger = Math.round((v - 0.5) / (1 - 2 * border) * 14 + 7);
+    const center = (0.5 + (finger / 14 - 0.5) * (1 - 2 * border)) * height;
+    const horizontal = finger > 0 && finger < 14 ? stripeCoverage(y, center, 0.000625 * height / 2) : 0;
+    for (let x = 0; x < width; x++) {
+      const u = (x + 0.5) / width;
+      const vertical = v > border && v < 1 - border
+        ? stripeCoverage(x, (u < 0.5 ? 0.17 : 0.83) * width, 0.001 * width / 2) : 0;
+      const coverage = u > border / 2 && u < 1 - border / 2 ? 1 - (1 - horizontal) * (1 - vertical) : 0;
+      const [red, green, blue] = palette[Math.round(255 * coverage)];
+      const index = (y * width + x) * 4;
+      pixels[index] = red;
+      pixels[index + 1] = green;
+      pixels[index + 2] = blue;
+      pixels[index + 3] = 255;
+    }
+  }
+  const texture = new THREE.DataTexture(pixels, width, height);
+  texture.name = "Solar-cell metallization";
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.generateMipmaps = true;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.anisotropy = 8;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function spacecraftMaterials() {
   // Linear RGB appearance from the Yapling v03 exterior (spacecraft-v03-v45.glb).
   return {
@@ -19,9 +63,8 @@ function spacecraftMaterials() {
     pcb: standard(new THREE.Color(0.72, 0.75, 0.76), 0, 0.42),
     black: standard(new THREE.Color(0.012, 0.015, 0.018), 0.08, 0.38),
     patch: standard(new THREE.Color(0.61, 0.42, 0.115), 0.78, 0.26),
-    grid: standard(new THREE.Color(0.045, 0.050, 0.060), 0.50, 0.40),
     cell: new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(0.0035, 0.004, 0.008), metalness: 0.03, roughness: 0.27,
+      map: cellAlbedo(), metalness: 0.03, roughness: 0.27,
       specularIntensity: 0.32, clearcoat: 0.20, clearcoatRoughness: 0.17,
     }),
     glass: new THREE.MeshPhysicalMaterial({
@@ -99,20 +142,12 @@ function solarCell(parent: THREE.Object3D, m: Materials, center: Vec3, scale: nu
     new THREE.Vector2(x, -z + crop), new THREE.Vector2(x - crop, -z),
     new THREE.Vector2(-x + crop, -z), new THREE.Vector2(-x, -z + crop),
   ]);
-  mesh(assembly, new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false }), m.cell, [0, 0, 0])
-    .rotation.x = -Math.PI / 2;
-
-  const border = Math.min(width, length) * 0.017;
-  const metal = thickness * 0.08;
-  for (let finger = 1; finger <= 13; finger += 1) {
-    const along = (finger / 14 - 0.5) * (length - 2 * border);
-    const clippedHalfWidth = x - Math.max(0, along - (z - crop)) - border;
-    box(assembly, m.grid, [0, thickness + metal / 2, along], [2 * clippedHalfWidth, metal, Math.min(width, length) * 0.000625]);
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
+  const uv = geometry.getAttribute('uv'), position = geometry.getAttribute('position');
+  for (let i = 0; i < position.count; i++) {
+    uv.setXY(i, position.getX(i) / width + 0.5, position.getY(i) / length + 0.5);
   }
-  for (const side of [-1, 1]) {
-    const contactX = side * width * 0.33;
-    box(assembly, m.grid, [contactX, thickness + metal * 1.5, 0], [width * 0.001, metal, length - 2 * border]);
-  }
+  mesh(assembly, geometry, m.cell, [0, 0, 0]).rotation.x = -Math.PI / 2;
 }
 
 function instrumentDeck(root: THREE.Group, m: Materials, w: number, d: number, h: number, cellScale: number) {
@@ -156,8 +191,32 @@ function frame(root: THREE.Group, m: Materials, w: number, d: number, h: number)
   }
   for (const z of [-1, 1]) for (const side of [-1, 1]) {
     const shelf = z * (h - ledge) / 2;
-    box(root, m.aluminium, [0, side * (d - flange) / 2, shelf], [w, flange, ledge], rail * 0.06);
-    box(root, m.aluminium, [side * (w - flange) / 2, 0, shelf], [flange, d, ledge], rail * 0.06);
+    box(root, m.aluminium, [0, side * (d - flange) / 2, shelf], [w - 2 * rail, flange, ledge], rail * 0.06);
+    box(root, m.aluminium, [side * (w - flange) / 2, 0, shelf], [flange, d - 2 * rail, ledge], rail * 0.06);
+  }
+}
+
+/** Fixed white face boards, inset fasteners and cells follow the face
+ * populations on the Yapling v03 exterior. Positions scale with the envelope. */
+function fixedFace(root: THREE.Group, m: Materials, width: number, length: number,
+  center: Vec3, rotation: Vec3, rows: number, rail: number, cellScale: number) {
+  const board = new THREE.Group();
+  board.position.fromArray(center);
+  board.rotation.set(...rotation);
+  root.add(board);
+  const span = width - 2 * rail;
+  const height = length - 2 * rail;
+  const thickness = rail * 0.25;
+  box(board, m.pcb, [0, -thickness / 2, 0], [span, thickness, height], thickness / 3);
+  const scale = Math.min(cellScale, span * 0.90 / 0.080, height * 0.93 / (rows * 0.040));
+  for (let i = 0; i < rows; i++) {
+    const z = (i - (rows - 1) / 2) * (scale * 0.043);
+    solarCell(board, m, [0, 0, z], scale, i % 2 ? Math.PI : 0);
+  }
+  for (const x of [-1, 1]) for (const z of [-1, 1]) {
+    const head = mesh(board, new THREE.CylinderGeometry(rail * 0.29, rail * 0.35, rail * 0.13, 12),
+      m.aluminium, [x * (span / 2 - rail * 0.48), rail * 0.065, z * (height / 2 - rail * 0.48)]);
+    mesh(head, new THREE.CircleGeometry(rail * 0.14, 6), m.black, [0, rail * 0.0655, 0]).rotation.x = -Math.PI / 2;
   }
 }
 
@@ -198,9 +257,27 @@ function wing(root: THREE.Group, m: Materials, body: Scenario['body'], side: num
   }
 
   const radius = Math.min(panelWidthM, panelLengthM) * 0.027;
-  const axisPin = mesh(root, new THREE.CylinderGeometry(radius, radius, panelWidthM * 0.70, 16), m.aluminium, hinge.position.toArray());
-  if (axis === 'x') axisPin.rotation.x = Math.PI / 2;
-  else axisPin.rotation.z = Math.PI / 2;
+  // Interleaved hinge knuckles around a continuous pin. The moving leaf
+  // fastens to the rear of the substrate and follows the deployment angle.
+  const bearing = new THREE.Group();
+  hinge.add(bearing);
+  bearing.rotation.y = axis === 'x' ? Math.PI / 2 : 0;
+  const span = panelWidthM * 0.60;
+  const pin = mesh(bearing, new THREE.CylinderGeometry(radius * 0.58, radius * 0.58, span * 1.06, 20),
+    m.aluminium, [0, 0, 0]);
+  pin.rotation.z = Math.PI / 2;
+  for (const offset of [-1, 0, 1]) {
+    const knuckle = mesh(bearing, new THREE.CylinderGeometry(radius, radius, span * 0.31, 20),
+      m.aluminium, [offset * span / 3, 0, 0]);
+    knuckle.rotation.z = Math.PI / 2;
+  }
+  const leafLength = scale * 0.010;
+  box(bearing, m.aluminium, [0, -thickness, side * leafLength / 2],
+    [span * 0.31, thickness, leafLength], thickness * 0.3);
+  for (const x of [-1, 1]) {
+    mesh(bearing, new THREE.CylinderGeometry(scale * 0.00125, scale * 0.00155, thickness * 0.45, 12),
+      m.black, [x * span * 0.095, -thickness * 1.72, side * leafLength * 0.72]);
+  }
 }
 
 function axialBarrel(parent: THREE.Group, material: THREE.Material, profile: [number, number][]) {
@@ -334,6 +411,16 @@ export function makeSpacecraft(scenario: Scenario): THREE.Group {
   const { widthM, depthM, heightM, panelWidthM, panelLengthM } = scenario.body;
   const cellScale = Math.min(widthM / 0.1, heightM / 0.1135, panelWidthM / 0.088, panelLengthM / 0.101);
   frame(root, m, widthM, depthM, heightM);
+  const rail = Math.min(widthM, depthM, heightM) * 0.06;
+  // Keep fixed boards inside the corner rails, above the structural core.
+  const recess = rail * 0.25;
+  fixedFace(root, m, widthM, heightM, [0, -depthM / 2 + recess, 0], [Math.PI, 0, 0], 1, rail, cellScale);
+  for (const sign of [-1, 1]) {
+    fixedFace(root, m, depthM, heightM, [sign * (widthM / 2 - recess), 0, 0],
+      [0, 0, -sign * Math.PI / 2], 2, rail, cellScale);
+    fixedFace(root, m, widthM, depthM, [0, 0, sign * (heightM / 2 - recess)],
+      [sign * Math.PI / 2, 0, 0], 2, rail, cellScale);
+  }
   instrumentDeck(root, m, widthM, depthM, heightM, cellScale);
   for (const side of [-1, 1]) {
     wing(root, m, scenario.body, side, 'x', cellScale);
@@ -353,5 +440,8 @@ export function disposeObject(object: THREE.Object3D) {
     for (const material of Array.isArray(child.material) ? child.material : [child.material]) materials.add(material);
   });
   geometries.forEach(geometry => geometry.dispose());
-  materials.forEach(material => material.dispose());
+  materials.forEach(material => {
+    if (material instanceof THREE.MeshStandardMaterial && material.map?.name === "Solar-cell metallization") material.map.dispose();
+    material.dispose();
+  });
 }

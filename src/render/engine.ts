@@ -528,6 +528,7 @@ export async function createImagingEngine(
         cameraId = id;
         space.setActive(next === "space");
         if (next === "space" && !spaceVisited) {
+          updateWorld();
           space.resetView();
           spaceVisited = true;
         }
@@ -551,6 +552,7 @@ export async function createImagingEngine(
         dirty = true;
       },
       resetSpaceView() {
+        updateWorld();
         space.resetView();
         dirty = true;
       },

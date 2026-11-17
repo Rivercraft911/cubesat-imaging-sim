@@ -1,9 +1,19 @@
 import * as THREE from "three/webgpu";
 import { ellipsoidNormal, intersectEarth } from "../sim";
 import type { SimulationSample, Vec3 } from "../sim";
-/** Low-resolution Earth-reflected radiance for material reflections. Uniform
- * 0.3 broadband albedo is an illustrative context approximation, not the
- * source-normalized sensor image or a calibrated spacecraft thermal model. */
+/** The same global day image used on the globe supplies a low-frequency
+ * diffuse-color proxy for Earthshine. The image is display-referred and the
+ * lighting remains illustrative. Longitude is east-positive, north is up. */
+function diffuseEarthImage(day: THREE.Texture) {
+  if (typeof HTMLImageElement === "undefined" || !(day.image instanceof HTMLImageElement)) return;
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 256;
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  context.drawImage(day.image, 0, 0, canvas.width, canvas.height);
+  return context.getImageData(0, 0, canvas.width, canvas.height);
+}
 export class EarthEnvironment {
   readonly width = 128;
   readonly height = 64;
@@ -16,7 +26,11 @@ export class EarthEnvironment {
     THREE.FloatType,
   );
   private key = "";
-  constructor() {
+  private readonly surface?: ImageData;
+  private readonly linear = Array.from({ length: 256 }, (_, i) => THREE.ColorManagement.toWorkingColorSpace(
+    new THREE.Color(i / 255, 0, 0), THREE.SRGBColorSpace).r);
+  constructor(day: THREE.Texture) {
+    this.surface = diffuseEarthImage(day);
     this.texture.mapping = THREE.EquirectangularReflectionMapping;
     this.texture.colorSpace = THREE.LinearSRGBColorSpace;
     this.texture.needsUpdate = true;
@@ -37,9 +51,20 @@ export class EarthEnvironment {
           Math.cos(latitude) * Math.sin(longitude),
         ];
         const hit = intersectEarth(sample.positionEcefM, ray);
-        let light = 0;
+        let light = 0, r = 0.68, g = 0.8, b = 1;
         if (hit) {
           const n = ellipsoidNormal(hit);
+          if (this.surface) {
+            const { width, height, data } = this.surface;
+            const longitude = Math.atan2(n[1], n[0]), latitude = Math.asin(n[2]);
+            const col = Math.min(width - 1, Math.floor(width * (0.5 + longitude / (2 * Math.PI))));
+            const row = Math.min(height - 1, Math.floor(height * (0.5 - latitude / Math.PI)));
+            const i = 4 * (row * width + col);
+            // Broad blue atmospheric fill plus spatially varying surface scatter.
+            r = 0.18 + 0.82 * this.linear[data[i]];
+            g = 0.24 + 0.76 * this.linear[data[i + 1]];
+            b = 0.36 + 0.64 * this.linear[data[i + 2]];
+          }
           light =
             0.9 *
             Math.max(
@@ -50,9 +75,9 @@ export class EarthEnvironment {
             );
         }
         const index = (y * this.width + x) * 4;
-        this.data[index] = light * 0.68;
-        this.data[index + 1] = light * 0.8;
-        this.data[index + 2] = light;
+        this.data[index] = light * r;
+        this.data[index + 1] = light * g;
+        this.data[index + 2] = light * b;
         this.data[index + 3] = 1;
       }
     this.texture.needsUpdate = true;
