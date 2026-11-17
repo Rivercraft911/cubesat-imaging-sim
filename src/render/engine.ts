@@ -372,17 +372,27 @@ export async function createImagingEngine(
           dirty = true;
         },
         sources: { panorama: renderPanorama, native: presentNative },
-        withTime(pts, drawSource) {
+        withTime(pts, drawSource, study) {
+          const displayScenario = scenario;
           const displaySample = sample,
             displayTime = timeS;
           try {
-            if (pts !== undefined) {
+            if (study) {
+              scenario = study.scenario;
+              timeS = study.timeS;
+              sample = sampleState(scenario, timeS);
+              sceneRevision++;
+            } else if (pts !== undefined) {
               timeS = pts / 1e6;
               sample = sampleState(scenario, timeS);
             }
             updateWorld();
             drawSource();
           } finally {
+            if (study) {
+              scenario = displayScenario;
+              sceneRevision++;
+            }
             sample = displaySample;
             timeS = displayTime;
           }
@@ -514,6 +524,9 @@ export async function createImagingEngine(
             });
           }
         }
+      },
+      getEncoderFrame(id, w, h, captureUs, init) {
+        return captures.encoderFrame(id, w, h, captureUs, init);
       },
       getEncoderCanvas(id, w, h, pts) {
         return captures.canvas(id, w, h, pts);

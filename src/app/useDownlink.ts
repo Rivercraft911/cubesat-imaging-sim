@@ -205,9 +205,10 @@ export function useDownlink(
         if (advanced) onFrameTimeRef.current?.(captureUs / 1_000_000);
         capturingRef.current = true;
         try {
-          const canvas = await source.getEncoderCanvas(stream.id, stream.width, stream.height, captureUs);
-          if (runRef.current !== run || engine.current !== source) return null;
-          return new VideoFrame(canvas, { timestamp: ptsUs, duration: Math.round(1_000_000 / settings.fps) });
+          const frame = await source.getEncoderFrame(stream.id, stream.width, stream.height, captureUs,
+            { timestamp: ptsUs, duration: Math.round(1_000_000 / settings.fps) });
+          if (runRef.current !== run || engine.current !== source) { frame.close(); return null; }
+          return frame;
         } finally {
           capturingRef.current = false;
         }

@@ -26,6 +26,8 @@ export interface CaptureOptions {
   width?: number;
   height?: number;
   type?: "image/png" | "image/jpeg";
+  /** Freeze the render state for this capture without changing the viewfinder. */
+  study?: { scenario: Scenario; timeS: number };
 }
 export interface ImagingEngine {
   updateScenario(scenario: Scenario, timeS?: number): void;
@@ -45,6 +47,7 @@ export interface ImagingEngine {
   resize(width: number, height: number, dpr?: number): void;
   render(): void;
   capture(options?: CaptureOptions): Promise<Blob>;
+  getEncoderFrame(id: CaptureCamera, width: number, height: number, captureUs: number, init: VideoFrameInit): Promise<VideoFrame>;
   getEncoderCanvas(
     cameraId: CaptureCamera,
     width?: number,

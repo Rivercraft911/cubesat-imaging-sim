@@ -3,9 +3,10 @@ import Color4 from "three/src/renderers/common/Color4.js";
 import type { CameraConfig, CameraId, SensorProfile } from "../sim";
 import type { CaptureCamera, CaptureOptions } from "./types";
 import type { makeStitch } from "./stitch";
+import { createEncoderSurface } from "./encoder-surface";
 import { unpackRgba8 } from "./readback";
 
-type WithTime = (pts: number | undefined, draw: () => void) => void;
+type WithTime = (pts: number | undefined, draw: () => void, study?: CaptureOptions["study"]) => void;
 interface CaptureInput {
   renderer: THREE.WebGPURenderer;
   quadScene: THREE.Scene;
@@ -44,6 +45,7 @@ export function createCapturePipeline({
   const captureTarget = new THREE.RenderTarget(1, 1, { depthBuffer: false });
   captureTarget.texture.colorSpace = THREE.SRGBColorSpace;
   const outputCanvas = document.createElement("canvas");
+  const encoderSurface = createEncoderSurface(renderer);
   const decodedCanvas = document.createElement("canvas");
   let disposed = false;
   let workQueue: Promise<unknown> = Promise.resolve();
@@ -73,8 +75,8 @@ export function createCapturePipeline({
       target.width,
       target.height,
     );
-    output.width = target.width;
-    output.height = target.height;
+    if (output.width !== target.width) output.width = target.width;
+    if (output.height !== target.height) output.height = target.height;
     const data = unpackRgba8(bytes, target.width, target.height);
     output
       .getContext("2d")!
@@ -96,68 +98,72 @@ export function createCapturePipeline({
       renderer.toneMapping = toneMapping;
     }
   }
-  function captureCanvas(
+  function drawCapture(
     id: CaptureCamera,
     w?: number,
     h?: number,
     pts?: number,
+    study?: CaptureOptions["study"],
   ) {
+    withTime(pts, () => {
+      const sensor = id === "panorama" ? null : sensorInfo(config(id));
+      const nativeW = sensor?.width ?? 4096,
+        nativeH = sensor?.height ?? 2048;
+      let aspect = nativeW / nativeH;
+      let crop: THREE.Vector4 | undefined;
+      if (
+        id !== "main" &&
+        id !== "panorama" &&
+        sensor &&
+        w !== undefined &&
+        h !== undefined &&
+        Math.abs(w / h - 1) < 0.01
+      ) {
+        const side = Math.min(
+          sensor.width,
+          sensor.height,
+          config(id).lens.imageCircleMm / (sensor.pixelPitchUm / 1000),
+        );
+        crop = new THREE.Vector4(
+          (sensor.width - side) / 2,
+          (sensor.height - side) / 2,
+          side,
+          side,
+        );
+        aspect = 1;
+      }
+      if (id === "panorama") sources.panorama();
+      else sources.native(id, crop);
+      const width = w ?? nativeW,
+        height = h ?? nativeH;
+      const limit = (renderer.backend as unknown as { device: GPUDevice })
+        .device.limits.maxTextureDimension2D;
+      if (
+        !Number.isInteger(width) ||
+        !Number.isInteger(height) ||
+        width < 1 ||
+        height < 1 ||
+        width > limit ||
+        height > limit
+      )
+        throw new RangeError(
+          `Capture dimensions must be integers from 1 to ${limit}.`,
+        );
+      captureTarget.setSize(width, height);
+      let vw = width,
+        vh = height;
+      if (vw / vh > aspect) vw = vh * aspect;
+      else vh = vw / aspect;
+      captureTarget.viewport.set((width - vw) / 2, (height - vh) / 2, vw, vh);
+      renderer.setRenderTarget(captureTarget);
+      renderer.setClearColor(0, 1);
+      renderer.clear();
+      renderer.render(quadScene, quadCamera);
+    }, study);
+  }
+  function captureCanvas(id: CaptureCamera, w?: number, h?: number, pts?: number, study?: CaptureOptions["study"]) {
     return withRendererState(async () => {
-      withTime(pts, () => {
-        const sensor = id === "panorama" ? null : sensorInfo(config(id));
-        const nativeW = sensor?.width ?? 4096,
-          nativeH = sensor?.height ?? 2048;
-        let aspect = nativeW / nativeH;
-        let crop: THREE.Vector4 | undefined;
-        if (
-          id !== "main" &&
-          id !== "panorama" &&
-          sensor &&
-          w !== undefined &&
-          h !== undefined &&
-          Math.abs(w / h - 1) < 0.01
-        ) {
-          const side = Math.min(
-            sensor.width,
-            sensor.height,
-            config(id).lens.imageCircleMm / (sensor.pixelPitchUm / 1000),
-          );
-          crop = new THREE.Vector4(
-            (sensor.width - side) / 2,
-            (sensor.height - side) / 2,
-            side,
-            side,
-          );
-          aspect = 1;
-        }
-        if (id === "panorama") sources.panorama();
-        else sources.native(id, crop);
-        const width = w ?? nativeW,
-          height = h ?? nativeH;
-        const limit = (renderer.backend as unknown as { device: GPUDevice })
-          .device.limits.maxTextureDimension2D;
-        if (
-          !Number.isInteger(width) ||
-          !Number.isInteger(height) ||
-          width < 1 ||
-          height < 1 ||
-          width > limit ||
-          height > limit
-        )
-          throw new RangeError(
-            `Capture dimensions must be integers from 1 to ${limit}.`,
-          );
-        captureTarget.setSize(width, height);
-        let vw = width,
-          vh = height;
-        if (vw / vh > aspect) vw = vh * aspect;
-        else vh = vw / aspect;
-        captureTarget.viewport.set((width - vw) / 2, (height - vh) / 2, vw, vh);
-        renderer.setRenderTarget(captureTarget);
-        renderer.setClearColor(0, 1);
-        renderer.clear();
-        renderer.render(quadScene, quadCamera);
-      });
+      drawCapture(id, w, h, pts, study);
       return readTarget(captureTarget, outputCanvas);
     });
   }
@@ -168,9 +174,16 @@ export function createCapturePipeline({
     canvas(id: CaptureCamera, w?: number, h?: number, pts?: number) {
       return enqueue(() => captureCanvas(id, w, h, pts));
     },
+    encoderFrame(id: CaptureCamera, w: number, h: number, captureUs: number, init: VideoFrameInit) {
+      return enqueue(() => withRendererState(async () => {
+        drawCapture(id, w, h, captureUs);
+        return encoderSurface.frame(captureTarget, init)
+          ?? new VideoFrame(await readTarget(captureTarget, outputCanvas), init);
+      }));
+    },
     capture(id: CaptureCamera, options: CaptureOptions) {
       return enqueue(async () => {
-        const output = await captureCanvas(id, options.width, options.height);
+        const output = await captureCanvas(id, options.width, options.height, undefined, options.study);
         return new Promise<Blob>((resolve, reject) =>
           output.toBlob(
             (blob) =>
@@ -261,6 +274,7 @@ export function createCapturePipeline({
     dispose(afterIdle?: () => void) {
       disposed = true;
       void workQueue.then(() => {
+        encoderSurface.dispose();
         captureTarget.dispose();
         afterIdle?.();
       });
