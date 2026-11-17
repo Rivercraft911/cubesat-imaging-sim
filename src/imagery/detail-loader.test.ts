@@ -132,3 +132,94 @@ it("retries a failed refinement while retaining its whole-footprint overview", a
   expect(publish.mock.lastCall?.[0].id).toBe("complete");
   loader.dispose();
 });
+
+it("publishes fast full imagery without waiting for an overview, and closes a late coarse result", async () => {
+  const preview = deferred<GroundImage>();
+  let plan!: ShotPlan, previewSignal!: AbortSignal;
+  const publish = vi.fn(),
+    report = vi.fn();
+  const loader = new DetailLoader(
+    publish,
+    report,
+    {
+      prepared: async () => null,
+      overview: (request, signal) => {
+        plan = request;
+        previewSignal = signal;
+        return preview.promise;
+      },
+      full: async (request) =>
+        image("fast-full", request.bounds, request.sourceResolutionM),
+    },
+    () => 0,
+  );
+  loader.update(view([100, 100, 5000, 4000]));
+  await settle();
+  expect(publish.mock.lastCall?.[0].id).toBe("fast-full");
+  expect(report.mock.lastCall?.[0].state).toBe("ready");
+  expect(previewSignal.aborted).toBe(true);
+  const coarse = image(
+    "late-overview",
+    plan.bounds,
+    plan.sourceResolutionM * 2,
+  );
+  preview.resolve(coarse);
+  await settle();
+  expect(publish.mock.lastCall?.[0].id).toBe("fast-full");
+  expect((coarse.image as ImageBitmap).close).toHaveBeenCalledOnce();
+  loader.dispose();
+});
+
+it("an overview failure cannot prevent full refinement", async () => {
+  const publish = vi.fn(),
+    full = vi.fn(async (plan: ShotPlan) =>
+      image("full", plan.bounds, plan.sourceResolutionM),
+    );
+  const loader = new DetailLoader(
+    publish,
+    vi.fn(),
+    {
+      prepared: async () => null,
+      overview: async () => {
+        throw new Error("Overview timed out");
+      },
+      full,
+    },
+    () => 0,
+  );
+  loader.update(view([100, 100, 5000, 4000]));
+  await settle();
+  expect(full).toHaveBeenCalledOnce();
+  expect(publish.mock.lastCall?.[0].id).toBe("full");
+  loader.dispose();
+});
+
+it("replaces covering medium imagery with a finer prepared asset without a remote request", async () => {
+  const bounds: Bounds = [100, 100, 5000, 4000];
+  const medium = image("medium-local", bounds, 7),
+    fine = image("fine-local", bounds, 1.5);
+  const prepared = vi
+    .fn()
+    .mockResolvedValueOnce(medium)
+    .mockResolvedValueOnce(fine);
+  const publish = vi.fn(),
+    overview = vi.fn(),
+    full = vi.fn();
+  const loader = new DetailLoader(
+    publish,
+    vi.fn(),
+    { prepared, overview, full },
+    () => 0,
+  );
+  loader.update({ ...view(bounds), desiredPixelM: 8 });
+  await settle();
+  expect(publish.mock.lastCall?.[0]).toBe(medium);
+  loader.update({ ...view(bounds), desiredPixelM: 2 });
+  await settle();
+  expect(prepared).toHaveBeenCalledTimes(2);
+  expect(prepared.mock.lastCall?.[2]).toBe(7);
+  expect(publish.mock.lastCall?.[0]).toBe(fine);
+  expect(overview).not.toHaveBeenCalled();
+  expect(full).not.toHaveBeenCalled();
+  loader.dispose();
+});

@@ -3,6 +3,7 @@ import type { Bounds } from "./bounds";
 import { cacheImage, cachedImage } from "./cache";
 import { featherCoverage } from "./coverage";
 import { TILE_PIXELS, type ShotPlan } from "./plan";
+import { imagerySlot } from "./request-slots";
 
 const SERVICE =
   "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer";
@@ -36,7 +37,7 @@ export async function regionalImage(
   return { ...meta, image: await createImageBitmap(await raster.blob()) };
 }
 
-async function imageTile(
+async function imageTileInSlot(
   bounds: Bounds,
   width: number,
   height: number,
@@ -86,6 +87,17 @@ async function imageTile(
   }
   void cacheImage(key, blob);
   return image;
+}
+
+function imageTile(
+  bounds: Bounds,
+  width: number,
+  height: number,
+  signal: AbortSignal,
+) {
+  return imagerySlot(signal, () =>
+    imageTileInSlot(bounds, width, height, signal),
+  );
 }
 
 /** One complete-footprint overview replaces the satellite fallback before the
@@ -184,6 +196,7 @@ let preparedIndex: Promise<PreparedImage[]> | undefined;
 export async function preparedShot(
   bounds: Bounds,
   signal: AbortSignal,
+  finerThanM = Infinity,
 ): Promise<GroundImage | null> {
   preparedIndex ??= fetch("/assets/shots/manifest.json")
     .then((r) => (r.ok ? (r.json() as Promise<PreparedImage[]>) : []))
@@ -193,6 +206,7 @@ export async function preparedShot(
   const entry = list
     .filter(
       (p) =>
+        p.sourceResolutionM < finerThanM &&
         p.boundsMercator[0] <= bounds[0] &&
         p.boundsMercator[1] <= bounds[1] &&
         p.boundsMercator[2] >= bounds[2] &&

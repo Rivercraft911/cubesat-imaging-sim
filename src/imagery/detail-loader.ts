@@ -161,6 +161,14 @@ export class DetailLoader {
       close(image);
       return false;
     }
+    // A late overview cannot replace sharper coverage already displayed.
+    if (
+      this.hasAerial(this.view!.bounds) &&
+      this.current!.sourceResolutionM <= image.sourceResolutionM
+    ) {
+      close(image);
+      return false;
+    }
     this.remember(image);
     this.show(
       image,
@@ -170,6 +178,9 @@ export class DetailLoader {
   }
   private async load(job: Job) {
     const { plan, abort } = job;
+    const previewAbort = new AbortController();
+    const previewSignal = AbortSignal.any([abort.signal, previewAbort.signal]);
+    let complete = 0;
     const loading = (message: string) => {
       if (this.job === job && !abort.signal.aborted)
         this.report({
@@ -178,35 +189,55 @@ export class DetailLoader {
           resolutionM: this.current?.sourceResolutionM,
         });
     };
+    const refinement = () =>
+      loading(
+        `Refining aerial imagery · ${complete}/${plan.tiles.length} tiles · ${((this.now() - job.started) / 1000).toFixed(1)} s`,
+      );
     try {
       loading("Opening whole-footprint aerial imagery…");
-      if (!this.hasAerial(this.view!.bounds)) {
-        const prepared = await this.providers.prepared(
+      // Even a covering medium-resolution raster may have a finer bundled
+      // replacement. Check local assets before spending time on remote tiles.
+      let prepared: GroundImage | null = null;
+      try {
+        prepared = await this.providers.prepared(
           this.view!.bounds,
           abort.signal,
+          this.hasAerial(this.view!.bounds)
+            ? this.current!.sourceResolutionM
+            : Infinity,
         );
-        if (prepared) {
-          if (!this.accept(job, prepared, "Prepared aerial image")) return;
-          if (prepared.sourceResolutionM <= plan.sourceResolutionM * 1.05)
-            return;
-        } else {
-          const overview = await this.providers.overview(plan, abort.signal);
-          if (!this.accept(job, overview, "Whole-footprint aerial overview"))
-            return;
-          if (overview.sourceResolutionM <= plan.sourceResolutionM * 1.05)
-            return;
-        }
+      } catch (error) {
+        abort.signal.throwIfAborted(); /* Continue with remote imagery. */
       }
-      loading(`Refining aerial imagery · 0/${plan.tiles.length} tiles`);
-      const image = await this.providers.full(
-        plan,
-        abort.signal,
-        (complete, total) => {
-          loading(
-            `Refining aerial imagery · ${complete}/${total} tiles · ${((this.now() - job.started) / 1000).toFixed(1)} s`,
-          );
-        },
-      );
+      if (
+        prepared &&
+        this.accept(job, prepared, "Prepared aerial image") &&
+        prepared.sourceResolutionM <= plan.sourceResolutionM * 1.05
+      )
+        return;
+      abort.signal.throwIfAborted();
+      if (!this.hasAerial(this.view!.bounds)) {
+        // Do not await an overview: cached or fast full-resolution tiles can
+        // finish first, and an overview service failure cannot block them.
+        void this.providers
+          .overview(plan, previewSignal)
+          .then((image) => {
+            if (previewSignal.aborted) {
+              close(image);
+              return;
+            }
+            if (this.accept(job, image, "Whole-footprint aerial overview"))
+              refinement();
+          })
+          .catch(() => {
+            /* The independent refinement remains authoritative. */
+          });
+      }
+      refinement();
+      const image = await this.providers.full(plan, abort.signal, (count) => {
+        complete = count;
+        refinement();
+      });
       if (
         this.accept(
           job,
@@ -215,6 +246,8 @@ export class DetailLoader {
         )
       )
         this.retry = { key: "", after: 0, attempts: 0 };
+      else if (this.job === job && !abort.signal.aborted && this.current)
+        this.show(this.current);
     } catch (error) {
       if (this.job === job && !abort.signal.aborted) {
         const attempts =
@@ -228,6 +261,7 @@ export class DetailLoader {
         });
       }
     } finally {
+      previewAbort.abort();
       if (this.job === job) this.job = null;
     }
   }
