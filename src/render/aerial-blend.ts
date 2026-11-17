@@ -27,7 +27,13 @@ export function settledAerialWeight(coverage: Bounds, footprint: Bounds, gsdM: n
   return smooth(margin) * resolution;
 }
 
-/** Wall-clock arrival affects only the viewfinder; captures use settled weight. */
+/** A delayed frame stretches the fade rather than skipping through it.
+ * No extra image history is retained; only this scalar display clock advances. */
+export function advanceAerialArrival(progressMs: number, elapsedMs: number): number {
+  return Math.min(AERIAL_ARRIVAL_MS, progressMs + Math.max(0, Math.min(1000 / 30, elapsedMs)));
+}
+
+/** Arrival affects preview/live only; still/study captures use settled weight. */
 export function aerialArrivalWeight(ageMs: number): number {
   return smooth(ageMs / AERIAL_ARRIVAL_MS);
 }

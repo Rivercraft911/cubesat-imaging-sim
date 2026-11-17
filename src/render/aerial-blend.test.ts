@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aerialArrivalWeight, isAerialImage, settledAerialWeight } from './aerial-blend';
+import { advanceAerialArrival, aerialArrivalWeight, isAerialImage, settledAerialWeight } from './aerial-blend';
 
 describe('whole-level aerial blending', () => {
   it('limits known aerial providers without changing satellite imagery', () => {
@@ -25,6 +25,11 @@ describe('whole-level aerial blending', () => {
     expect(settledAerialWeight(bounds,shot,10,20)).toBe(1);
     expect(settledAerialWeight(bounds,shot,10)).toBe(1);
     expect(settledAerialWeight(bounds,shot,NaN)).toBe(0);
+  });
+  it('stretches the fade through a stalled frame instead of flashing', () => {
+    expect(advanceAerialArrival(0,130)).toBeCloseTo(1000/30);
+    expect(advanceAerialArrival(240,20)).toBe(250);
+    expect(advanceAerialArrival(20,-1)).toBe(20);
   });
   it('bounds a 59 DN transition at 60 Hz, settling after 250 ms', () => {
     const weights=Array.from({length:16},(_,i)=>aerialArrivalWeight(i*250/15));

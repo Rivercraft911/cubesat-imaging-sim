@@ -28,7 +28,7 @@ import { createSpaceContext } from "./space-context";
 import { installInspectionControls } from "./inspection-controls";
 import { createPanoramaViewer } from "./panorama-viewer";
 import { createGroundLayers } from "./ground-layers";
-import { aerialArrivalWeight, isAerialImage, settledAerialWeight } from "./aerial-blend";
+import { advanceAerialArrival, aerialArrivalWeight, isAerialImage, settledAerialWeight } from "./aerial-blend";
 import { makePlanetSurface } from "./planet-surface";
 import { validateNativeAllocation } from "./allocation";
 import { installGpuDiagnostics } from "./gpu-diagnostics";
@@ -104,7 +104,8 @@ export async function createImagingEngine(
       panoramaVisited = false;
     let currentDetail: GroundImage | null = null;
     let currentBase: GroundImage | null = null;
-    let aerialArrivedAtMs = 0;
+    let aerialLastUpdatedMs = 0;
+    let aerialProgressMs = 0;
     let aerialArrivalStartWeight = 0;
     let blendGeometry: { scenario: Scenario; timeS: number; detail: GroundImage; base: GroundImage | null; weight: number } | null = null;
     function updateGroundWeight(settled = false) {
@@ -118,7 +119,12 @@ export async function createImagingEngine(
             weight: settledAerialWeight(currentDetail.boundsMercator, footprint, computeMetrics(scenario, "main", timeS).gsdM, satelliteSpacing) };
         }
         const support = blendGeometry.weight;
-        const arrival = aerialArrivalWeight(performance.now() - aerialArrivedAtMs);
+        if (!settled) {
+          const now = performance.now();
+          aerialProgressMs = advanceAerialArrival(aerialProgressMs, now - aerialLastUpdatedMs);
+          aerialLastUpdatedMs = now;
+        }
+        const arrival = aerialArrivalWeight(aerialProgressMs);
         // Keep continuity across NAIP replacements without retaining another texture.
         weight = settled ? support : Math.min(support, aerialArrivalStartWeight + (support - aerialArrivalStartWeight) * arrival);
       }
@@ -483,7 +489,8 @@ export async function createImagingEngine(
         groundLayers.setDetail(image);
         currentDetail = image;
         aerialArrivalStartWeight = wasAerial ? previousWeight : 0;
-        aerialArrivedAtMs = performance.now();
+        aerialLastUpdatedMs = performance.now();
+        aerialProgressMs = 0;
         groundRevision++;
         dirty = true;
       },
