@@ -138,7 +138,7 @@ function Geometry({ camera, scenario, onChange, onCameraChange }: CameraSettings
           aria-describedby="wide-stand-off-help"
           onChange={event => changePosition(1, wideMountBodyYM(wideId, body.depthM, event.currentTarget.valueAsNumber))} />
       </label>
-      <p className="note" id="wide-stand-off-help">Increasing stand-off moves both cameras outward from their nominal mounts.</p>
+      <p className="note" id="wide-stand-off-help">At 0 mm, each optical center sits {fmt((Math.abs(nominalY) - body.depthM / 2) * 1000, 1)} mm beyond its body face. The slider moves both lenses outward together.</p>
     </>}
     <div className="field-grid">
       {MOUNT_AXES.map((axis, i) => <NumberField key={axis} label={`Body ${axis}`} unit="mm" value={camera.positionBodyM[i] * 1000}
