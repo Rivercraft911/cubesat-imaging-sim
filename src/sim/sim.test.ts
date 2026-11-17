@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EARTH_EQUATORIAL_RADIUS_M, EARTH_POLAR_RADIUS_M, cameraPose, computeMetrics, createDefaultScenario, ecefToGeodetic, geodeticToEcef, getSensor, intersectEarth, parseScenario, projectPoint, rayForPixel, rotate, sampleState } from './index';
 import { DEG, dot, length, normalize, scale, sub, wrap } from './math';
+import { localUp } from './earth';
 import { daysSinceJ2000, greenwichSiderealRad, meanSunRaRad } from './sun';
 import type { Scenario, SimulationSample, Vec3 } from './types';
 
@@ -35,13 +36,25 @@ describe('constructed pass', () => {
     expect(state.inclinationDeg).toBeLessThan(97.8);
     expect(state.groundSpeedMps).toBeGreaterThan(6900);
     expect(state.groundSpeedMps).toBeLessThan(7400);
-    expect(state.epochISO.slice(0, 10)).toBe('2026-11-17');
-    expect(state.sunElevationDeg).toBeLessThan(0);
+    expect(state.epochISO.slice(0, 10)).toBe('2026-10-03');
 
     const p0 = sampleState(scenario, -0.05).positionEcefM;
     const p1 = sampleState(scenario, 0.05).positionEcefM;
     expect(length(sub(scale(sub(p1, p0), 10), state.velocityEcefMps))).toBeLessThan(1e-4);
     expect(length(sampleState(scenario, 360).positionEcefM)).toBeCloseTo(length(state.positionEcefM), 7);
+  });
+
+  it('opens on an October near-terminator pass without changing altitude or LTAN', () => {
+    const scenario = createDefaultScenario();
+    expect(scenario).toMatchObject({ altitudeM: 550_000, ltanHours: 18, ascending: true });
+    const center = sampleState(scenario);
+    expect(Math.abs(center.sunElevationDeg)).toBeLessThan(0.1);
+    for (let timeS = -360; timeS <= 360; timeS += 30) {
+      const state = sampleState(scenario, timeS);
+      const { latitudeDeg, longitudeDeg } = ecefToGeodetic(state.positionEcefM);
+      const solarElevation = Math.asin(dot(localUp(latitudeDeg, longitudeDeg), state.sunDirectionEcef)) / DEG;
+      expect(Math.abs(solarElevation)).toBeLessThan(2);
+    }
   });
 
   it.each([true, false])('preserves LTAN for either heading (ascending: %s)', ascending => {
