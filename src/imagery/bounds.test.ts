@@ -6,6 +6,24 @@ import {
 import { mercator, shotBounds } from './bounds';
 
 describe('imagery request bounds', () => {
+  it('rebuilds camera-frame rays after a focal-length or custom-sensor change', () => {
+    const scenario = createDefaultScenario();
+    const main = scenario.cameras.find(camera => camera.id === 'main')!;
+    main.sensorId = 'custom';
+    scenario.customSensor = { width: 3840, height: 2160, pixelPitchUm: 2, shutter: 'rolling' };
+    const timeS = 17;
+    const width = (bounds: ReturnType<typeof shotBounds>) => bounds[2] - bounds[0];
+    const initial = shotBounds(scenario, timeS);
+    main.lens.focalLengthMm *= 2;
+    const telephoto = shotBounds(scenario, timeS);
+    expect(width(telephoto)).toBeLessThan(width(initial));
+    scenario.customSensor.pixelPitchUm /= 2;
+    expect(width(shotBounds(scenario, timeS))).toBeLessThan(width(telephoto));
+    main.lens.focalLengthMm /= 2;
+    scenario.customSensor.pixelPitchUm *= 2;
+    expect(shotBounds(scenario, timeS)).toEqual(initial);
+  });
+
   it.each([
     { imageCircleMm: 11, offNadirDeg: 0, shape: 'rectangular' },
     { imageCircleMm: 8, offNadirDeg: 24, shape: 'clipped rectangle' },

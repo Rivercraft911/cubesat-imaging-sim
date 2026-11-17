@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { computeMetrics, type Scenario } from "../sim";
 import type { GroundImage } from "../render";
-import { contains, shotBounds } from "../imagery/bounds";
+import { contains, shotBounds, type Bounds } from "../imagery/bounds";
 import { needsAerial } from "../imagery/lod";
 import { DetailLoader } from "../imagery/detail-loader";
 import type { ImageryProgress } from "../imagery/provider";
@@ -27,28 +27,30 @@ export function useGroundDetail(
   const reconcile = useRef<(changed?: boolean) => void>(() => {});
   const track = useRef<() => void>(() => {});
   const prefetch = useRef<() => void>(() => {});
-  const camera = scenario.cameras.find((c) => c.id === "main")!;
-  const geometryKey = JSON.stringify([
-    scenario.target,
-    scenario.altitudeM,
-    scenario.passOffsetKm,
-    scenario.epochISO,
-    scenario.ltanHours,
-    scenario.ascending,
-    scenario.pointing,
-    scenario.offNadirDeg,
-    scenario.rollDeg,
-    camera.sensorId,
-    camera.lens.focalLengthMm,
-    camera.lens.projection,
-    camera.lens.maxFovDeg,
-    camera.lens.imageCircleMm,
-    camera.positionBodyM,
-    camera.yawDeg,
-    camera.pitchDeg,
-    camera.rollDeg,
-    scenario.customSensor,
-  ]);
+  const geometryKey = useMemo(() => {
+    const camera = scenario.cameras.find((c) => c.id === "main")!;
+    return JSON.stringify([
+      scenario.target,
+      scenario.altitudeM,
+      scenario.passOffsetKm,
+      scenario.epochISO,
+      scenario.ltanHours,
+      scenario.ascending,
+      scenario.pointing,
+      scenario.offNadirDeg,
+      scenario.rollDeg,
+      camera.sensorId,
+      camera.lens.focalLengthMm,
+      camera.lens.projection,
+      camera.lens.maxFovDeg,
+      camera.lens.imageCircleMm,
+      camera.positionBodyM,
+      camera.yawDeg,
+      camera.pitchDeg,
+      camera.rollDeg,
+      scenario.customSensor,
+    ]);
+  }, [scenario]);
 
   useEffect(() => {
     const loader = new DetailLoader(setDetail, (value) =>
@@ -60,6 +62,12 @@ export function useGroundDetail(
           : value,
       ),
     );
+    let geometry: {
+      scenario: Scenario;
+      timeS: number;
+      gsdM: number;
+      bounds: Bounds;
+    } | undefined;
     const view = () => {
       const { scenario: live, timeS: frameTime, fine, base } = latest.current;
       const regional = fine?.image.width
@@ -68,8 +76,16 @@ export function useGroundDetail(
           ? base
           : null;
       if (!regional) return;
-      const metrics = computeMetrics(live, "main", frameTime);
-      const bounds = shotBounds(live, frameTime);
+      // Track, reconcile and poll all read the same geometry between frames.
+      if (geometry?.scenario !== live || geometry.timeS !== frameTime) {
+        geometry = {
+          scenario: live,
+          timeS: frameTime,
+          gsdM: computeMetrics(live, "main", frameTime).gsdM,
+          bounds: shotBounds(live, frameTime),
+        };
+      }
+      const { bounds, gsdM } = geometry;
       const satellite = contains(regional.boundsMercator, bounds)
         ? regional
         : base?.image.width
@@ -79,10 +95,10 @@ export function useGroundDetail(
         bounds,
         satellite,
         latitudeDeg: live.target.latitudeDeg,
-        desiredPixelM: Math.max(0.6, metrics.gsdM / 1.5),
-        sensorSpacingM: metrics.gsdM,
+        desiredPixelM: Math.max(0.6, gsdM / 1.5),
+        sensorSpacingM: gsdM,
         aerial: needsAerial(
-          metrics.gsdM,
+          gsdM,
           regional.sourceResolutionM,
           loader.hasAerial(bounds),
         ),
