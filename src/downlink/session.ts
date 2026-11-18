@@ -181,12 +181,15 @@ class ActiveDownlink {
   #publishStats(): void {
     if (!this.#active) return
     this.#trackOutage(performance.now())
-    try {
-      this.#callbacks.onStats?.(this.snapshot())
-    } catch (error) {
-      this.#fatal(error)
-    }
-    if (this.#active) this.#statsTimer = setTimeout(() => this.#publishStats(), STATS_INTERVAL_MS)
+    this.#callbacks.onStats?.(this.snapshot())
+    if (!this.#active) return
+    this.#statsTimer = setTimeout(() => {
+      try {
+        this.#publishStats()
+      } catch (error) {
+        this.#fatal(error)
+      }
+    }, STATS_INTERVAL_MS)
   }
 
   #fatal(error: unknown): void {
@@ -241,6 +244,7 @@ export class DownlinkSession {
       })
       this.#active = run
       run.start(this.#manualOutage)
+      probe.signal.throwIfAborted()
       return support
     } catch (error) {
       probe.signal.throwIfAborted()

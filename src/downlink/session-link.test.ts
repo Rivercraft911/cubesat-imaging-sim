@@ -86,3 +86,31 @@ it('uses the newest transport settings when an asynchronous codec probe finishes
   await vi.advanceTimersByTimeAsync(70)
   expect(session.stats!.streams[0].chunksDelivered).toBe(1)
 })
+
+it('reports a failed startup if the initial stats callback throws', async () => {
+  session = new DownlinkSession({
+    getFrame: () => null,
+    onDecoded() {},
+    onStats() { throw new Error('Cannot display downlink statistics') },
+  })
+
+  await expect(session.start(DEFAULT_DOWNLINK_CONFIG)).resolves.toEqual({
+    supported: false, reason: 'Cannot display downlink statistics',
+  })
+  expect(session.stats).toBeNull()
+  expect(FakeEncoder.instances[0].state).toBe('closed')
+  expect(vi.getTimerCount()).toBe(0)
+})
+
+it('rejects startup if the initial stats callback stops the session', async () => {
+  session = new DownlinkSession({
+    getFrame: () => null,
+    onDecoded() {},
+    onStats() { session.stop() },
+  })
+
+  await expect(session.start(DEFAULT_DOWNLINK_CONFIG)).rejects.toMatchObject({ name: 'AbortError' })
+  expect(session.stats).toBeNull()
+  expect(FakeEncoder.instances[0].state).toBe('closed')
+  expect(vi.getTimerCount()).toBe(0)
+})
