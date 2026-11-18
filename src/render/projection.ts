@@ -56,7 +56,8 @@ fn localMercator(delta:vec3f, reference:vec3f, latSinCos:vec2f)->vec2f {
  let lonDelta=atan2(reference.x*delta.y-reference.y*delta.x,radius*radius+dot(reference.xy,delta.xy));
  let e2=0.9933056200098587;
  let latDelta=atan2(e2*(radius*delta.z-reference.z*rhoDelta),e2*e2*radius*(radius+rhoDelta)+reference.z*(reference.z+delta.z));
- let sinDelta=latSinCos.x*(-2.0*pow(sin(latDelta*0.5),2.0))+latSinCos.y*sin(latDelta);
+ let sinHalfLatDelta=sin(latDelta*0.5);
+ let sinDelta=latSinCos.x*(-2.0*sinHalfLatDelta*sinHalfLatDelta)+latSinCos.y*sin(latDelta);
  let x=clamp(sinDelta/(latSinCos.y*latSinCos.y-latSinCos.x*sinDelta),-0.99,0.99);
  let x2=x*x;
  let mercatorDelta=x*(1.0+x2*(1.0/3.0+x2*(1.0/5.0+x2*(1.0/7.0+x2/9.0))));
