@@ -63,7 +63,7 @@ share.addEventListener('click', async () => {
   shareStatus.textContent = '';
   if (typeof navigator.share === 'function') {
     try {
-      await navigator.share({ title: 'Field of View · Stanford SSI', url });
+      await navigator.share({ title: document.title, url });
       return;
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
