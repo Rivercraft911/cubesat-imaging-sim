@@ -32,7 +32,8 @@ function tapeMarkings() {
 /** Closed tape cross section, extruded along local +X. The edges rise
  * above the center of the marked face, as on a curved steel tape. */
 function tapeGeometry() {
-  const positions: number[] = [], uvs: number[] = [], indices: number[] = [];
+  const positions: number[] = [], uvs: number[] = [];
+  const outboard: number[] = [], inboard: number[] = [], edges: number[] = [];
   const crossSection: [number, number][] = [];
   for (const face of [1, -1]) {
     for (let i = 0; i <= CROSS_SECTION_STEPS; i++) {
@@ -47,21 +48,23 @@ function tapeGeometry() {
   }
   for (let i = 0; i < count; i++) {
     const j = (i + 1) % count;
-    indices.push(i, count + i, j, j, count + i, count + j);
+    const face = i < CROSS_SECTION_STEPS ? outboard
+      : (i > CROSS_SECTION_STEPS && i < count - 1 ? inboard : edges);
+    face.push(i, count + i, j, j, count + i, count + j);
   }
   // End caps fan across opposite vertices so the camber remains open in profile.
   for (let i = 0; i < CROSS_SECTION_STEPS; i++) {
     const a = i, b = i + 1, c = count - 1 - i, d = count - 2 - i;
-    indices.push(a, b, c, b, d, c, count + a, count + c, count + b, count + b, count + c, count + d);
+    edges.push(a, b, c, b, d, c, count + a, count + c, count + b, count + b, count + c, count + d);
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geometry.setIndex(indices);
+  geometry.setIndex([...outboard, ...inboard, ...edges]);
   geometry.computeVertexNormals();
-  const markedFaceIndices = 6 * CROSS_SECTION_STEPS;
-  geometry.addGroup(0, markedFaceIndices, 0);
-  geometry.addGroup(markedFaceIndices, indices.length - markedFaceIndices, 1);
+  geometry.addGroup(0, outboard.length, 0);
+  geometry.addGroup(outboard.length, inboard.length, 1);
+  geometry.addGroup(outboard.length + inboard.length, edges.length, 2);
   return geometry;
 }
 
@@ -80,19 +83,21 @@ export function makeRearDipole(rearFaceY: number, widthM: number, heightM: numbe
   mount.add(base);
 
   const geometry = tapeGeometry();
-  const white = new THREE.MeshStandardMaterial({ map: tapeMarkings(), roughness: 0.53 });
+  const marked = new THREE.MeshStandardMaterial({ map: tapeMarkings(), roughness: 0.53 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xedebe0, roughness: 0.53 });
   const steel = new THREE.MeshStandardMaterial({ color: 0x697078, metalness: 0.64, roughness: 0.41 });
   const lateral = Math.sin(TAPE_SPLAY_RAD);
+  // Both widths run along body Z. The convex edges camber toward the
+  // outboard normal on each arm. Both broad faces have the white finish.
   for (const side of [-1, 1]) {
     const arm = new THREE.Vector3(side * lateral, -Math.cos(TAPE_SPLAY_RAD), 0);
-    const across = new THREE.Vector3(0, 0, 1).cross(arm).normalize();
-    if (side > 0) across.applyAxisAngle(arm, THREE.MathUtils.degToRad(72));
-    const normal = new THREE.Vector3().crossVectors(arm, across);
-    const tape = new THREE.Mesh(geometry, [white, steel]);
+    const across = new THREE.Vector3(0, 0, -side);
+    const outward = new THREE.Vector3().crossVectors(arm, across);
+    const tape = new THREE.Mesh(geometry, [marked, white, steel]);
     tape.name = side < 0 ? 'Rear tape −X' : 'Rear tape +X';
     // Each arm starts at its feed terminal on the rear surface of the mount.
     tape.position.set(side * socketSpacing / 2, -0.004, 0);
-    tape.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(arm, across, normal));
+    tape.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(arm, across, outward));
     mount.add(tape);
   }
   mount.traverse(part => {
