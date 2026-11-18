@@ -9,8 +9,8 @@ const studyCamera = createDefaultScenario().cameras.find(camera => camera.id ===
 const housing: Record<WideLensChoice, Pick<CameraConfig, 'housingDiameterMm' | 'housingLengthMm'>> = {
   study: { housingDiameterMm: studyCamera.housingDiameterMm, housingLengthMm: studyCamera.housingLengthMm },
   'commonlands-cil220': { housingDiameterMm: 14, housingLengthMm: 13.1 },
-  // The FRAMOS module drawing locates the cap relative to its PCB. The pupil-to-rear distance is provisional.
-  'framos-l185a': { housingDiameterMm: 25.8, housingLengthMm: 10 },
+  // FRAMOS module drawing: retaining-ring plane to holder joint, 26.76 − 14.10 mm.
+  'framos-l185a': { housingDiameterMm: 25.8, housingLengthMm: 12.66 },
 };
 
 export function fitWideLens(camera: CameraConfig, choice: WideLensChoice): Pick<CameraConfig, 'lens' | 'housingDiameterMm' | 'housingLengthMm'> {

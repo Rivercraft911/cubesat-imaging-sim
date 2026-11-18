@@ -23,7 +23,7 @@ it('distinguishes generic and catalog optics from manual edits', () => {
   const wide = createDefaultScenario().cameras[1];
   expect(wideLensChoice(wide.lens)).toBe('study');
   const framos = fitWideLens(wide, 'framos-l185a');
-  expect(framos).toMatchObject({ housingDiameterMm: 25.8, housingLengthMm: 10 });
+  expect(framos).toMatchObject({ housingDiameterMm: 25.8, housingLengthMm: 12.66 });
   expect(wideLensChoice(framos.lens)).toBe('framos-l185a');
   expect(wideLensChoice({ ...framos.lens, focalLengthMm: 2 })).toBe('custom');
 });

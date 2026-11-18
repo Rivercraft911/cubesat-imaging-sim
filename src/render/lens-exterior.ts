@@ -55,6 +55,24 @@ function cil220(mount: THREE.Group, metal: THREE.Material, glass: THREE.Material
     2 * Math.atan(sagMm / edgeMm), axialUnit / radialUnit);
 }
 
+// FRAMOS FSM:GO IMX676C, L185A module outline. Drawing dimensions locate
+// the apex (30.70), front of the retaining ring (26.76) and lens/holder joint
+// (14.10 mm) from the same PCB datum. Use the ring plane as the assumed pupil.
+// https://docs.framos.com/en/latest/_images/image24.svg
+function l185a(mount: THREE.Group, metal: THREE.Material, glass: THREE.Material, r: number, length: number) {
+  const radialUnit = r / 12.9, axialUnit = length / (26.76 - 14.10);
+  // The ring, tapered shoulder and glue groove follow the drawing silhouette.
+  // Intermediate unlabelled sections are approximate. The holder is separate.
+  const profile: Section[] = [[0, -12.66], [6.0, -12.66], [6.0, -12.35], [7.45, -12.25],
+    [7.45, -11.9], [6.85, -11.75], [6.85, -11.4], [7.45, -11.3], [8.0, -10.1],
+    [8.55, -9.8], [8.55, -9.05], [10.85, -6.05], [10.85, -4.7],
+    [12.7, -4.7], [12.9, -4.5], [12.9, -0.2], [12.7, 0], [10.15, 0]];
+  barrel(mount, metal, profile.map(([radius, z]) => [radius * radialUnit, z * axialUnit]));
+  const edgeMm = 10.15, sagMm = 30.70 - 26.76;
+  const curvatureMm = (edgeMm ** 2 + sagMm ** 2) / (2 * sagMm);
+  frontElement(mount, glass, curvatureMm * radialUnit, sagMm * radialUnit, 2 * Math.atan(sagMm / edgeMm));
+}
+
 /** Exterior sections. Supplier dimensions are used where available. */
 export function addLensExterior(mount: THREE.Group, metal: THREE.Material, glass: THREE.Material,
   r: number, length: number, main: boolean, profileId?: string) {
@@ -75,22 +93,17 @@ export function addLensExterior(mount: THREE.Group, metal: THREE.Material, glass
     return;
   }
 
-  // FRAMOS's L185A module drawing gives Ø25.8 mm and a 3.94 mm sag (30.70 − 26.76).
-  // The remaining FRAMOS exterior sections relative to the pupil are illustrative.
-  // https://docs.framos.com/en/latest/FSMEcosystem/ProductDocumentation/FSMGO/IMX676.html#l185a
-  const framos = profileId === 'framos-l185a';
-  if (profileId === 'commonlands-cil220' || framos) {
-    // The specified angular coverage already includes the lens's own mechanical field stop.
+  if (profileId === 'commonlands-cil220' || profileId === 'framos-l185a') {
+    // The manufacturer's specified field already includes its own field stop.
     mount.userData.catalogLensHousing = true;
-    if (!framos) {
-      cil220(mount, metal, glass, r, length);
-      return;
-    }
+    const build = profileId === 'commonlands-cil220' ? cil220 : l185a;
+    build(mount, metal, glass, r, length);
+    return;
   }
-  const neckRadius = (framos ? 12 / 25.8 : 0.59) * r;
+  const neckRadius = 0.59 * r;
   const domeRadius = 0.94 * r;
-  const rimDepth = Math.min((framos ? 0.07 : 0.34) * r, 0.55 * length);
-  const seatRadius = framos ? 0.86 * r : Math.sqrt(domeRadius ** 2 - rimDepth ** 2);
+  const rimDepth = Math.min(0.34 * r, 0.55 * length);
+  const seatRadius = Math.sqrt(domeRadius ** 2 - rimDepth ** 2);
   const span = length - rimDepth;
   const sections: Section[] = [[0, -length], [neckRadius, -length],
     [neckRadius, -length + 0.27 * span], [0.66 * r, -length + 0.30 * span],
@@ -98,7 +111,7 @@ export function addLensExterior(mount: THREE.Group, metal: THREE.Material, glass
     [r, -rimDepth - 0.27 * span], [r, -rimDepth - 0.10 * span],
     [0.96 * r, -rimDepth], [seatRadius, -rimDepth]];
   barrel(mount, metal, sections);
-  const sag = framos ? (3.94 / 12.9) * r : domeRadius + rimDepth;
+  const sag = domeRadius + rimDepth;
   const curvature = (seatRadius ** 2 + sag ** 2) / (2 * sag);
   frontElement(mount, glass, curvature, sag - rimDepth, 2 * Math.atan(sag / seatRadius));
 }
