@@ -30,6 +30,8 @@ export function makeStitch(front: THREE.Texture, rear: THREE.Texture) {
     sensorB: uniform(new THREE.Vector3()),
     lensA: uniform(new THREE.Vector4()),
     lensB: uniform(new THREE.Vector4()),
+    edgeFactorA: uniform(0),
+    edgeFactorB: uniform(0),
     rotationA: uniform(new THREE.Matrix3()),
     rotationB: uniform(new THREE.Matrix3()),
   };
@@ -45,10 +47,10 @@ export function makeStitch(front: THREE.Texture, rear: THREE.Texture) {
     const rayA = vec3(u.rotationA.mul(bodyRay)).toVar(),
       rayB = vec3(u.rotationB.mul(bodyRay)).toVar();
     const pa = vec3(
-        project(rayA, u.sensorA, u.lensA) as ReturnType<typeof vec3>,
+        project(rayA, u.sensorA, u.lensA, u.edgeFactorA) as ReturnType<typeof vec3>,
       ).toVar(),
       pb = vec3(
-        project(rayB, u.sensorB, u.lensB) as ReturnType<typeof vec3>,
+        project(rayB, u.sensorB, u.lensB, u.edgeFactorB) as ReturnType<typeof vec3>,
       ).toVar();
     // Convert one decoded texel back to native pixels. This also handles
     // square eye crops and letterboxing without admitting cropped-out rays.
@@ -61,12 +63,12 @@ export function makeStitch(front: THREE.Texture, rear: THREE.Texture) {
     const featherA = u.featherPixelsA.add(scaleA.x.max(scaleA.y).sub(1).max(0));
     const featherB = u.featherPixelsB.add(scaleB.x.max(scaleB.y).sub(1).max(0));
     const edgeA = vec2(
-      coverage(pa, u.sensorA, u.lensA, u.cropA, featherA) as ReturnType<
+      coverage(pa, u.sensorA, u.lensA, u.edgeFactorA, u.cropA, featherA) as ReturnType<
         typeof vec2
       >,
     ).toVar();
     const edgeB = vec2(
-      coverage(pb, u.sensorB, u.lensB, u.cropB, featherB) as ReturnType<
+      coverage(pb, u.sensorB, u.lensB, u.edgeFactorB, u.cropB, featherB) as ReturnType<
         typeof vec2
       >,
     ).toVar();

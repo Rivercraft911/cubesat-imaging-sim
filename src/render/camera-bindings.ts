@@ -54,6 +54,7 @@ export function bindSensorCamera(
   const pose = cameraPose(sample, c);
   sensor.u.sensor.value.set(s.width, s.height, s.pixelPitchUm / 1000);
   sensor.u.lens.value.copy(lensVector(c));
+  sensor.u.edgeFactor.value = c.lens.fThetaEdgeFactor ?? 0;
   sensor.u.rotation.value.copy(
     matrix(new THREE.Quaternion(...pose.qEcefFromCamera)),
   );
@@ -122,6 +123,7 @@ export function bindPanoramaCameras(
       s.pixelPitchUm / 1000,
     );
     stitch.u[`lens${side}`].value.copy(lensVector(c));
+    stitch.u[`edgeFactor${side}`].value = c.lens.fThetaEdgeFactor ?? 0;
     const inverse = new THREE.Quaternion(
       ...cameraPose(sample, c).qEcefFromCamera,
     )

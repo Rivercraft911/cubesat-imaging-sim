@@ -47,6 +47,7 @@ export function useGroundDetail(
       camera.lens.projection,
       camera.lens.maxFovDeg,
       camera.lens.imageCircleMm,
+      camera.lens.fThetaEdgeFactor,
       camera.positionBodyM,
       camera.yawDeg,
       camera.pitchDeg,

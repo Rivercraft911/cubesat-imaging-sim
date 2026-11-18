@@ -1,4 +1,5 @@
 import type { CameraConfig, CameraMetrics, Lens, SensorProfile } from "../sim";
+import { usableRadiusMm } from "../sim/camera";
 
 /** The existing native PSF samples Gaussian offsets through ±3σ and shutter
  * offsets through ±(4/9) of its motion length. Add one interpolation pixel. */
@@ -36,18 +37,12 @@ export function usableStitchEdgePx(
     ) *
       Math.PI) /
     180;
-  const angularRadius =
-    lens.projection === "rectilinear"
-      ? lens.focalLengthMm * Math.tan(theta)
-      : lens.projection === "equidistant"
-        ? lens.focalLengthMm * theta
-        : 2 * lens.focalLengthMm * Math.sin(theta / 2);
   const radiusPx = Math.hypot(
     (uv[0] - 0.5) * sensor.width,
     (uv[1] - 0.5) * sensor.height,
   );
   return Math.min(
-    Math.min(lens.imageCircleMm / 2, angularRadius) / pitch - radiusPx,
+    usableRadiusMm(lens, theta) / pitch - radiusPx,
     uv[0] * sensor.width,
     (1 - uv[0]) * sensor.width,
     uv[1] * sensor.height,
@@ -64,10 +59,10 @@ export function edgeConfidence(distancePx: number, featherPx: number): number {
 }
 
 export const stitchCoverageWGSL = /*wgsl*/ `
-fn stitchCoverage(projected: vec3f, sensor: vec3f, lens: vec4f, crop: vec4f, feather: f32) -> vec2f {
+fn stitchCoverage(projected: vec3f, sensor: vec3f, lens: vec4f, edgeFactor: f32, crop: vec4f, feather: f32) -> vec2f {
  if (projected.z < 0.5) { return vec2f(0.0); }
  var angularRadius = lens.x * tan(lens.z);
- if (lens.y > 0.5 && lens.y < 1.5) { angularRadius = lens.x * lens.z; }
+ if (lens.y > 0.5 && lens.y < 1.5) { angularRadius = lens.x * lens.z * (1.0 + edgeFactor); }
  if (lens.y > 1.5) { angularRadius = 2.0 * lens.x * sin(lens.z * 0.5); }
  let radiusPx = length((projected.xy - vec2f(0.5)) * sensor.xy);
  let lensEdge = min(lens.w * 0.5, angularRadius) / sensor.z - radiusPx;

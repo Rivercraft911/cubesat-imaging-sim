@@ -30,13 +30,38 @@ export function cameraPose(sample: SimulationSample, camera: CameraConfig): Came
 function angleFromRadius(lens: Lens, radiusMm: number): number {
   const ratio = radiusMm / lens.focalLengthMm;
   if (lens.projection === 'rectilinear') return Math.atan(ratio);
-  if (lens.projection === 'equidistant') return ratio;
+  if (lens.projection === 'equidistant') {
+    const factor = lens.fThetaEdgeFactor ?? 0;
+    if (!factor) return ratio;
+    const edgeAngle = availableAngle(lens);
+    const normalizedRadius = ratio / edgeAngle;
+    const edgeRadius = 1 + factor;
+    if (normalizedRadius >= edgeRadius) {
+      return edgeAngle * (1 + (normalizedRadius - edgeRadius) / (1 + 3 * factor));
+    }
+    let t = normalizedRadius / edgeRadius;
+    for (let iteration = 0; iteration < 5; iteration++) {
+      const cubic = factor * t * t;
+      t -= (t * (1 + cubic) - normalizedRadius) / (1 + 3 * cubic);
+    }
+    return t * edgeAngle;
+  }
   return 2 * Math.asin(ratio / 2);
 }
 
 function radiusFromAngle(lens: Lens, angleRad: number): number {
   if (lens.projection === 'rectilinear') return lens.focalLengthMm * Math.tan(angleRad);
-  if (lens.projection === 'equidistant') return lens.focalLengthMm * angleRad;
+  if (lens.projection === 'equidistant') {
+    const factor = lens.fThetaEdgeFactor ?? 0;
+    if (!factor) return lens.focalLengthMm * angleRad;
+    const edgeAngle = availableAngle(lens);
+    const t = angleRad / edgeAngle;
+    // Continue linearly after the fitted edge for the unclipped projection path.
+    const normalizedRadius = t <= 1
+      ? t * (1 + factor * t * t)
+      : 1 + factor + (t - 1) * (1 + 3 * factor);
+    return lens.focalLengthMm * edgeAngle * normalizedRadius;
+  }
   return 2 * lens.focalLengthMm * Math.sin(angleRad / 2);
 }
 
@@ -44,8 +69,7 @@ function availableAngle(lens: Lens): number {
   return Math.min(lens.maxFovDeg * DEG / 2, lens.projection === 'rectilinear' ? Math.PI / 2 : Math.PI);
 }
 
-export function usableRadiusMm(lens: Lens): number {
-  const angle = availableAngle(lens);
+export function usableRadiusMm(lens: Lens, angle = availableAngle(lens)): number {
   return Math.min(lens.imageCircleMm / 2, radiusFromAngle(lens, angle));
 }
 

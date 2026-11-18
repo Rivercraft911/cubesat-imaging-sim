@@ -1,4 +1,5 @@
 import { getSensor } from './catalog';
+import { LENS_PROFILES } from './lens-profiles';
 import { sampleState } from './orbit';
 import type { CameraConfig, CameraId, ExposureStudy, Lens, MainImageModel, Scenario, Vec3 } from './types';
 
@@ -50,6 +51,13 @@ function date(value: unknown): string {
 function parseLens(value: unknown): Lens {
   const lens = object(value, 'Lens');
   const projection = choice(lens.projection, 'Lens projection', ['rectilinear', 'equidistant', 'equisolid']);
+  const profileId = lens.profileId === undefined ? undefined
+    : choice(lens.profileId, 'Lens profile', LENS_PROFILES.map(profile => profile.id));
+  const fThetaEdgeFactor = lens.fThetaEdgeFactor === undefined ? undefined
+    : number(lens.fThetaEdgeFactor, 'F-theta edge factor', -0.25, 1);
+  if (fThetaEdgeFactor && projection !== 'equidistant') {
+    throw new TypeError('A nonzero F-theta edge factor requires the equidistant projection.');
+  }
   return {
     projection,
     focalLengthMm: number(lens.focalLengthMm, 'Focal length (mm)', 0.01, 10_000),
@@ -57,6 +65,8 @@ function parseLens(value: unknown): Lens {
     maxFovDeg: number(lens.maxFovDeg, 'Lens FOV (deg)', 0.1, projection === 'rectilinear' ? 180 : 360),
     imageCircleMm: number(lens.imageCircleMm, 'Image circle (mm)', 0.001, 1000),
     extraBlurPx: number(lens.extraBlurPx, 'Extra blur (px)', 0, 1000),
+    ...(profileId === undefined ? {} : { profileId }),
+    ...(fThetaEdgeFactor === undefined ? {} : { fThetaEdgeFactor }),
   };
 }
 

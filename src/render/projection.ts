@@ -1,11 +1,27 @@
 /** WGSL mirrors sim/camera.ts. Coordinates refer to native sensor pixel edges.
  * WGS84 intersections operate in equatorial-radius units to avoid squared-meter cancellation. */
 export const cameraRayWGSL = /* wgsl */ `
-fn cameraRay(pixel: vec2f, sensor: vec3f, lens: vec4f) -> vec4f {
+fn cameraRay(pixel: vec2f, sensor: vec3f, lens: vec4f, edgeFactor: f32) -> vec4f {
  let xy = (pixel - sensor.xy * 0.5) * sensor.z;
  let radius = length(xy);
  var theta = atan(radius / lens.x);
- if (lens.y > 0.5 && lens.y < 1.5) { theta = radius / lens.x; }
+ if (lens.y > 0.5 && lens.y < 1.5) {
+   theta = radius / lens.x;
+   if (edgeFactor != 0.0) {
+     let normalizedRadius = theta / lens.z;
+     let edgeRadius = 1.0 + edgeFactor;
+     var t = normalizedRadius / edgeRadius;
+     if (normalizedRadius >= edgeRadius) {
+       t = 1.0 + (normalizedRadius - edgeRadius) / (1.0 + 3.0 * edgeFactor);
+     } else {
+       for (var iteration = 0; iteration < 5; iteration++) {
+         let cubic = edgeFactor * t * t;
+         t -= (t * (1.0 + cubic) - normalizedRadius) / (1.0 + 3.0 * cubic);
+       }
+     }
+     theta = t * lens.z;
+   }
+ }
  if (lens.y > 1.5) { theta = 2.0 * asin(min(1.0, radius / (2.0 * lens.x))); }
  let valid = radius <= lens.w * 0.5 && theta <= lens.z && theta <= 3.14159265 && !(lens.y > 1.5 && radius > 2.0*lens.x);
  let direction = vec3f(xy * sin(theta) / max(radius, 0.00000001), cos(theta));
@@ -35,10 +51,18 @@ fn surfaceUV(point: vec3f) -> vec4f {
  return vec4f(lon / 6.28318530718 + 0.5, lat / 3.14159265359 + 0.5, lon*6378137.0, log(tan(0.785398163397 + clamp(lat,-1.48442223,1.48442223)*0.5))*6378137.0);
 }`;
 export const projectedPixelWGSL = /* wgsl */ `
-fn projectedPixel(ray: vec3f,sensor:vec3f,lens:vec4f)->vec3f {
+fn projectedPixel(ray: vec3f,sensor:vec3f,lens:vec4f,edgeFactor:f32)->vec3f {
  let theta = acos(clamp(ray.z,-1.0,1.0));
  var r=lens.x*tan(theta);
- if(lens.y > 0.5 && lens.y < 1.5){ r=lens.x*theta; }
+ if(lens.y > 0.5 && lens.y < 1.5){
+   r = lens.x * theta;
+   if (edgeFactor != 0.0) {
+     let t = theta / lens.z;
+     let normalizedRadius = select(1.0 + edgeFactor + (t - 1.0) * (1.0 + 3.0 * edgeFactor),
+       t * (1.0 + edgeFactor * t * t), t <= 1.0);
+     r = lens.x * lens.z * normalizedRadius;
+   }
+ }
  if(lens.y > 1.5){ r=2.0*lens.x*sin(theta*0.5); }
  let xy=ray.xy/max(length(ray.xy),0.00000001)*r/sensor.z+sensor.xy*0.5;
  let valid=theta<=lens.z && r<=lens.w*0.5 && all(xy>=vec2f(0.0)) && all(xy<=sensor.xy) && !(lens.y<0.5 && ray.z<=0.0);

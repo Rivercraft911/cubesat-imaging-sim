@@ -6,6 +6,7 @@ export type Quat = [number, number, number, number];
 export type CameraId = 'main' | 'wideA' | 'wideB';
 export type MainImageModel = 'pass' | 'reference' | 'twilight';
 export type Projection = 'rectilinear' | 'equidistant' | 'equisolid';
+export type LensProfileId = 'commonlands-cil220' | 'framos-l185a';
 export type Pointing = 'target' | 'nadir' | 'sun';
 
 export interface SensorProfile {
@@ -15,6 +16,9 @@ export interface SensorProfile {
 export interface Lens {
   focalLengthMm: number; fNumber: number; projection: Projection;
   maxFovDeg: number; imageCircleMm: number; extraBlurPx: number;
+  profileId?: LensProfileId;
+  /** Fractional radial departure from fθ at the maximum field angle. */
+  fThetaEdgeFactor?: number;
 }
 /** Optional illustrative sensitivity study. Inputs are assumptions unless measured by the user. */
 export interface ExposureStudy {

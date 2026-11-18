@@ -40,6 +40,7 @@ export function makeSensorMaterial(
   const u = {
     sensor: uniform(new THREE.Vector3(3840, 2160, 0.002)),
     lens: uniform(new THREE.Vector4(8, 0, Math.PI / 2, 20)),
+    edgeFactor: uniform(0),
     rotation: uniform(new THREE.Matrix3()),
     origin: uniform(new THREE.Vector3()),
     sun: uniform(new THREE.Vector3(1, 0, 0)),
@@ -78,7 +79,7 @@ export function makeSensorMaterial(
         .mul(u.crop.zw)
         .add(u.crop.xy);
       const camRay = vec4(
-        rayFn(p, u.sensor, u.lens) as ReturnType<typeof vec4>,
+        rayFn(p, u.sensor, u.lens, u.edgeFactor) as ReturnType<typeof vec4>,
       ).toVar();
       const ray = vec3(u.rotation.mul(camRay.xyz)).normalize().toVar();
       const hit = vec4(
