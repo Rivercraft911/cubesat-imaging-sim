@@ -22,6 +22,8 @@ Center GSD reports separate horizontal and vertical distances between WGS 84 int
 
 ## Image formation and transport
 
+The Stanford pass previews and the exterior view above the Bay contain modified Copernicus Sentinel data 2025. [Imagery sources and credits](../public/assets/NOTICE.md)
+
 Global textures, a regional satellite basemap, continuous Bay satellite coverage and camera-footprint aerial exports form the imagery levels. GPU mipmaps select the sampled level within each raster; source spacing stays separate from sensor GSD. The 25 and 100 mm opening views use the same Sentinel acquisition. Playback checks coverage at each displayed pass time while network requests run separately. When a finer NAIP survey arrives, the viewfinder and live video blend it in over about 250 ms at normal frame rates. Slow frames extend the transition. As its footprint approaches the raster edge, the entire aerial level tapers toward the satellite base. PNG and frozen comparison captures use the settled blend. Missing aerial coverage reveals the satellite layer, with an inward validity-mask taper. These dated composites retain their photographed illumination. They cannot provide terrain parallax, current weather, calibrated exposure or spatial detail beyond the source raster.
 
 Native images use linear half-float intermediates, a separable nine-sample Gaussian approximation to the Airy core combined with jitter/extra blur, and nine samples of center-field exposure motion. The bounded filter caps sigma at 24 native pixels and smear at 256 pixels and reports either cap. Airy rings, row-dependent rolling shutter and Bayer sampling are omitted. Housing geometry is provisional and is not derived from the optical prescription.
