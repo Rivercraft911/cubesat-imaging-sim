@@ -58,10 +58,13 @@ export function Timeline({ time, onFrameTime, onSeek, playing, setPlaying, speed
     setPlaying(false);
     onSeek(timeS);
   };
+  const atEnd = time >= PASS_END_S;
+  const playLabel = playing ? 'Pause pass' : atEnd ? 'Replay pass' : 'Play pass';
 
   return <section className="pass-strip" aria-label="Pass playback">
-    <button className="play-button" aria-label={playing ? 'Pause pass' : 'Play pass'} onClick={() => {
+    <button className="play-button" aria-label={playLabel} title={playLabel} onClick={() => {
       if (playing) savePlayhead();
+      else if (atEnd) onSeek(-PASS_END_S);
       setPlaying(!playing);
     }}>{playing ? 'Ⅱ' : '▶'}</button>
     <span className="pass-time">{time < 0 ? '−' : '+'}{fmt(Math.abs(time), 1)} <small>s</small></span>
