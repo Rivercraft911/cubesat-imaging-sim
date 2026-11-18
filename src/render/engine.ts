@@ -6,7 +6,7 @@ import { bindSensorCamera, bindPanoramaCameras } from "./camera-bindings";
 import { InitializationScope } from "./initialization";
 import { loadEarthTextures } from "./earth-textures";
 import { createHardwareCapture } from "./hardware-capture";
-import { texture, uniform, uv, vec2, vec4, ivec2 } from "three/tsl";
+import { float, texture, uniform, uv, vec2, vec4, ivec2 } from "three/tsl";
 import {
   getSensor,
   cameraPose,
@@ -253,7 +253,9 @@ export async function createImagingEngine(
         presentationTexture.load(pixel),
         presentationTexture.sample(presentationUV),
       );
-    presentation.colorNode = insideImage.select(presented, vec4(0, 0, 0, 1));
+    // Sample the mip chain on both sides of the image boundary so fragment
+    // quads crossing the letterbox have valid UV derivatives.
+    presentation.colorNode = vec4(presented.rgb.mul(float(insideImage)), 1);
     const optics = initialization.own(
       createOpticsPipeline(renderer, quadScene, quadCamera, quad),
     );
