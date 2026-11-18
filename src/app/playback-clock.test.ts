@@ -12,6 +12,13 @@ it.each([60, 120])('publishes 30 wall-clock samples per second on a %d Hz displa
   expect(samples.at(-1)).toBe(-299);
 });
 
+it.each([60, 120])('samples fast-forward at 60 Hz on a %d Hz display', refreshHz => {
+  const clock = new PlaybackClock(0, 30, 0);
+  const times = Array.from({ length: refreshHz }, (_, i) => clock.sample((i + 1) * 1_000 / refreshHz));
+  expect(times.filter(time => time !== null)).toHaveLength(60);
+  expect(times.at(-1)).toBe(30);
+});
+
 it('advances by the full visible wall time through a delayed animation frame', () => {
   const clock = new PlaybackClock(-300, 10, 100);
   expect(clock.sample(110)).toBeNull();

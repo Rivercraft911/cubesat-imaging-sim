@@ -494,6 +494,11 @@ export async function createImagingEngine(
     controls.addEventListener("change", () => {
       dirty = true;
     });
+    // Leave one frame queued behind the active one. When full, the next
+    // display tick draws the newest playhead state; captures have their own queue.
+    let displayFramesPending = 0;
+    const displayQueue = (renderer.backend as unknown as { device: GPUDevice }).device.queue;
+    const displayFinished = () => { displayFramesPending--; };
     const engine: ImagingEngine = {
       updateScenario(next, t = 0) {
         warnings.clear();
@@ -593,13 +598,17 @@ export async function createImagingEngine(
         space.resize();
         dirty = true;
       },
-      render() {
+      render(paceDisplay = false) {
         if (disposed || gpuFailure) return;
         if (!captures.busy) updateGroundWeight();
         if (view === "space") space.updateControls();
-        if (dirty) {
+        if (dirty && !captures.busy && (!paceDisplay || displayFramesPending < 2)) {
           try {
             draw();
+            if (paceDisplay) {
+              displayFramesPending++;
+              void displayQueue.onSubmittedWorkDone().then(displayFinished, displayFinished);
+            }
           } catch (error) {
             dirty = false;
             if (!hasDrawn) throw error;

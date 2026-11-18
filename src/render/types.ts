@@ -50,7 +50,8 @@ export interface ImagingEngine {
   getInspectionState(): { mode: "fit" | "native" | "custom"; scale: number };
   setInspection(mode: "fit" | "native"): void;
   resize(width: number, height: number, dpr?: number): void;
-  render(): void;
+  /** Interactive playback may coalesce obsolete draws while the GPU is busy. */
+  render(paceDisplay?: boolean): void;
   capture(options?: CaptureOptions): Promise<Blob>;
   getEncoderFrame(id: CaptureCamera, width: number, height: number, captureUs: number, init: VideoFrameInit, study?: CaptureOptions["study"]): Promise<VideoFrame>;
   getEncoderCanvas(

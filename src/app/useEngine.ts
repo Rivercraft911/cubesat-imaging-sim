@@ -15,6 +15,7 @@ export function useEngine(
     let stopped = false;
     let animation = 0;
     let firstFrame = true;
+    let lastStatus: EngineStatus | undefined;
     const element = host.current, canvasElement = canvas.current;
     const resize = () => {
       if (!stopped) engine.current?.resize(element.clientWidth, element.clientHeight, Math.min(devicePixelRatio, 2));
@@ -35,6 +36,13 @@ export function useEngine(
     };
     const updateStatus = (next: EngineStatus) => {
       if (stopped) return;
+      // GPU submission time varies every frame. Only publish fields the UI displays.
+      if (lastStatus && lastStatus.ready === next.ready && lastStatus.failed === next.failed
+        && lastStatus.message === next.message && lastStatus.inspectionMode === next.inspectionMode
+        && lastStatus.inspectionScale === next.inspectionScale && lastStatus.backend === next.backend
+        && (lastStatus.warnings ?? []).length === (next.warnings ?? []).length
+        && (next.warnings ?? []).every((w, i) => lastStatus?.warnings?.[i] === w)) return;
+      lastStatus = next;
       setStatus(next);
       if (next.ready && firstFrame) {
         firstFrame = false;
@@ -51,7 +59,7 @@ export function useEngine(
       const tick = () => {
         if (stopped) return;
         try {
-          if (!document.hidden) instance.render();
+          if (!document.hidden) instance.render(true);
         } catch (error) {
           fail(error);
           return;

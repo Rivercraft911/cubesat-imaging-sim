@@ -1,5 +1,6 @@
 export const PASS_END_S = 360;
-const UPDATES_PER_SECOND = 30;
+const NORMAL_HZ = 30;
+const FAST_FORWARD_HZ = 60;
 
 /** Computes playhead time from a monotonic wall-clock anchor and publishes at most one sample per slot. */
 export class PlaybackClock {
@@ -22,7 +23,9 @@ export class PlaybackClock {
   sample(wallMs: number): number | null {
     if (this.#anchorWallMs === null) return null;
     const timeS = this.timeAt(wallMs);
-    const slot = Math.floor((wallMs - this.#anchorWallMs) * UPDATES_PER_SECOND / 1_000);
+    const displayHz = this.#speed > 1 ? FAST_FORWARD_HZ : NORMAL_HZ;
+    // rAF timestamps can round either side of an exact refresh boundary.
+    const slot = Math.floor((wallMs - this.#anchorWallMs + 0.1) * displayHz / 1_000);
     if (timeS < PASS_END_S && slot <= this.#lastSlot) return null;
     this.#lastSlot = slot;
     return timeS;
