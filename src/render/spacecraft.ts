@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { cameraBodyRotation } from '../sim/camera';
+import { makeRearDipole } from './rear-dipole';
 import type { CameraId, Scenario, Vec3 } from '../sim/types';
 
 const EDITOR_LAYER = 1;
@@ -428,6 +429,7 @@ export function makeSpacecraft(scenario: Scenario): THREE.Group {
   }
   mergeParts(root);
   cameraHousings(root, m, scenario);
+  root.add(makeRearDipole(-depthM / 2 + recess, widthM, heightM));
   return root;
 }
 
@@ -441,7 +443,7 @@ export function disposeObject(object: THREE.Object3D) {
   });
   geometries.forEach(geometry => geometry.dispose());
   materials.forEach(material => {
-    if (material instanceof THREE.MeshStandardMaterial && material.map?.name === "Solar-cell metallization") material.map.dispose();
+    if (material instanceof THREE.MeshStandardMaterial) material.map?.dispose();
     material.dispose();
   });
 }
