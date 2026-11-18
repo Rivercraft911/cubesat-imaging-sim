@@ -38,6 +38,7 @@ class Shot:
 
 SHOTS = [
     Shot('stanford', 37.4275, -122.1697, 8192, 6144, ('stanford',)),
+    Shot('stanford-campus', 37.4275, -122.1697, 5120, 7168, ('stanford',), 0.6, 92),
     Shot('golden-gate', 37.8199, -122.4783, 6144, 6144, ('goldenGate',)),
     Shot('bay-bridge', 37.8042, -122.3750, 6144, 6144, ('bayBridge', 'sanFrancisco')),
     # Covers the 100 mm IMX676 footprint from -30 s to +30 s of the default pass.

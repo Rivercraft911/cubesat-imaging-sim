@@ -274,5 +274,86 @@
     "targetIds": [
       "stanford"
     ]
+  },
+  {
+    "id": "cdfw-naip-2022-stanford-campus",
+    "file": "stanford-campus.webp",
+    "targetIds": [
+      "stanford"
+    ],
+    "width": 5120,
+    "height": 7168,
+    "boundsMercator": [
+      -13601803.003527913,
+      4496155.584819111,
+      -13597934.58520608,
+      4501571.370469675
+    ],
+    "sourceResolutionM": 0.6,
+    "attribution": "USDA NAIP 2022 \u00b7 California Department of Fish and Wildlife",
+    "source": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer",
+    "catalog": "https://catalog.data.gov/dataset/naip-2022-60cm-california",
+    "publicDomain": "https://www.usgs.gov/centers/eros/science/usgs-eros-archive-aerial-photography-national-agriculture-imagery-program-naip",
+    "sourceNativeResolutionM": 0.6,
+    "sourceAcquisitionYear": 2022,
+    "retrievedUTC": "2026-11-18T01:34:29.743707+00:00",
+    "projectedPixelSpacingM": 0.7555504534828169,
+    "transparentPixels": 0,
+    "processing": "Four bilinear natural-color EPSG:3857 exports with returned extents verified. Stitched at matching pixel edges and encoded as WebP quality 92 with source alpha.",
+    "sourceTiles": [
+      {
+        "url": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer/exportImage?bbox=-13601803.003527913%2C4498863.477644393%2C-13599868.794366997%2C4501571.370469675&bboxSR=3857&imageSR=3857&size=2560%2C3584&format=png32&bandIds=0%2C1%2C2&noData=0%2C0%2C0&noDataInterpretation=esriNoDataMatchAll&adjustAspectRatio=false&interpolation=RSP_BilinearInterpolation&f=json",
+        "boundsMercator": [
+          -13601803.003527913,
+          4498863.477644393,
+          -13599868.794366997,
+          4501571.370469675
+        ],
+        "width": 2560,
+        "height": 3584,
+        "bytes": 17279043,
+        "sha256": "12ccd36002c15f552644c5cf970f132eab5cd105f8e29f7e444694b932c923bc"
+      },
+      {
+        "url": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer/exportImage?bbox=-13599868.794366997%2C4498863.477644393%2C-13597934.58520608%2C4501571.370469675&bboxSR=3857&imageSR=3857&size=2560%2C3584&format=png32&bandIds=0%2C1%2C2&noData=0%2C0%2C0&noDataInterpretation=esriNoDataMatchAll&adjustAspectRatio=false&interpolation=RSP_BilinearInterpolation&f=json",
+        "boundsMercator": [
+          -13599868.794366997,
+          4498863.477644393,
+          -13597934.58520608,
+          4501571.370469675
+        ],
+        "width": 2560,
+        "height": 3584,
+        "bytes": 17416016,
+        "sha256": "56f5aa5f866d903c22c3be5053ab5560378851fced568492a4857c38140a94c6"
+      },
+      {
+        "url": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer/exportImage?bbox=-13601803.003527913%2C4496155.584819111%2C-13599868.794366997%2C4498863.477644393&bboxSR=3857&imageSR=3857&size=2560%2C3584&format=png32&bandIds=0%2C1%2C2&noData=0%2C0%2C0&noDataInterpretation=esriNoDataMatchAll&adjustAspectRatio=false&interpolation=RSP_BilinearInterpolation&f=json",
+        "boundsMercator": [
+          -13601803.003527913,
+          4496155.584819111,
+          -13599868.794366997,
+          4498863.477644393
+        ],
+        "width": 2560,
+        "height": 3584,
+        "bytes": 15900797,
+        "sha256": "f584f140bf5e7a6ea3f8ffce9319b21dd478d8855407ecd667f299f63fa623d1"
+      },
+      {
+        "url": "https://gis.wildlife.ca.gov/images/rest/services/Base_Remote_Sensing/NAIP_2022/ImageServer/exportImage?bbox=-13599868.794366997%2C4496155.584819111%2C-13597934.58520608%2C4498863.477644393&bboxSR=3857&imageSR=3857&size=2560%2C3584&format=png32&bandIds=0%2C1%2C2&noData=0%2C0%2C0&noDataInterpretation=esriNoDataMatchAll&adjustAspectRatio=false&interpolation=RSP_BilinearInterpolation&f=json",
+        "boundsMercator": [
+          -13599868.794366997,
+          4496155.584819111,
+          -13597934.58520608,
+          4498863.477644393
+        ],
+        "width": 2560,
+        "height": 3584,
+        "bytes": 18187239,
+        "sha256": "1d16b7e37c208b3b124064852048a9b07720a89ad0a1849f1c3db5c3c3aa9259"
+      }
+    ],
+    "sha256": "2d8b494fc5ec58ebf489bfc5402ef517447db885833537c7a8c8609e4fa420ae"
   }
 ]

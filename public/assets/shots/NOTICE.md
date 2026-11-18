@@ -4,4 +4,6 @@ The NAIP WebP mosaics contain natural-color 2022 USDA National Agriculture Image
 
 The service exports the 0.60 m source on a common Web Mercator grid using bilinear interpolation. The local patches have 1.5 m ground spacing at their centers. The wider Stanford mosaic has 7 m spacing and covers the default 100 mm view for 30 seconds on either side of closest approach. `scripts/cache-shots.py` verifies export extents and stitches the rasters as WebP images with source transparency. `manifest.json` records each patch's EPSG:3857 bounds, output dimensions, dates, and SHA-256 hash. Lighting, shadows, and seasonal conditions come from the survey. Survey seams are visible over water in the bridge patches.
 
+The 2,000 mm view near closest approach uses `stanford-campus.webp`, a 3.07 × 4.30 km crop at 0.60 m ground spacing from the same NAIP survey. Frame coverage determines when the simulator switches to wider imagery. Rebuild it with `python scripts/cache-shots.py --shot stanford-campus`.
+
 The 100 mm Stanford view can use `stanford-sentinel.webp`, a 10 m crop of the March 24, 2025 Sentinel-2B pass. Contains modified Copernicus Sentinel data 2025. The source products and reproduction details are in `manifest.json` and the [regional credits](../NOTICE.md).
