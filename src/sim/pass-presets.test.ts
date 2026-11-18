@@ -54,3 +54,14 @@ describe('Stanford constructed presets', () => {
     expect(input.ltanHours).toBe(18);
   });
 });
+
+it('opens with Bay relief and preserves the ground model when changing passes', () => {
+  const opening = createOpeningScenario();
+  expect(opening.terrainModel).toBe('bay-relief');
+  const flat = { ...opening, terrainModel: 'ellipsoid' as const };
+  expect(applyStanfordPassPreset(flat, 'terminator').terrainModel).toBe('ellipsoid');
+  const { terrainModel, ...legacy } = opening;
+  expect(parseScenario(legacy).terrainModel).toBeUndefined();
+  expect(parseScenario(flat).terrainModel).toBe('ellipsoid');
+  expect(() => parseScenario({ ...legacy, terrainModel: 'invalid' })).toThrow('Ground surface');
+});

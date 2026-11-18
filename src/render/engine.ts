@@ -105,6 +105,7 @@ export async function createImagingEngine(
       westernNight,
       stanfordNight,
       regionalCloud,
+      terrain,
       fallback,
     } = earthTextures;
     const cloudLayer = createCloudLayer(cloud, regionalCloud);
@@ -166,6 +167,7 @@ export async function createImagingEngine(
         westernNight,
         stanfordNight,
         cloudLayer,
+        terrain,
       ),
     );
     if (gpuFailure) throw gpuFailure;
@@ -184,6 +186,7 @@ export async function createImagingEngine(
       stanfordNight,
       cloudLayer,
       space.sensorAerial,
+      terrain,
     );
     initialization.defer(() => {
       sensor.referenceMaterial.dispose();
@@ -286,6 +289,7 @@ export async function createImagingEngine(
         s = sensorInfo(c),
         pose = cameraPose(sample, c);
       space.setSensorPose(pose, sample);
+      sensor.u.terrainEnabled.value = scenario.terrainModel === "bay-relief" ? 1 : 0;
       bindSensorCamera(
         sensor,
         sample,
@@ -408,7 +412,7 @@ export async function createImagingEngine(
       onStatus?.({
         ready: true,
         backend: "WebGPU",
-        warnings: [...warnings],
+        warnings: [...warnings, ...(!terrain && scenario.terrainModel === "bay-relief" ? ["Bay terrain unavailable. Showing the reference ellipsoid."] : [])],
         renderMs: performance.now() - started,
         inspectionMode: inspectionControls.state.mode,
         inspectionScale: inspectionControls.state.scale,

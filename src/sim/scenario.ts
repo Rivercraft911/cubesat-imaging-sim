@@ -148,6 +148,7 @@ export function parseScenario(value: unknown): Scenario {
   }
   const scenario: Scenario = {
     version: 1,
+    ...(input.terrainModel === undefined ? {} : { terrainModel: choice(input.terrainModel, 'Ground surface', ['bay-relief', 'ellipsoid'] as const) }),
     epochISO: date(input.epochISO),
     altitudeM: number(input.altitudeM, 'Orbit altitude (m)', 100_000, 2_000_000),
     ltanHours: number(input.ltanHours, 'LTAN (h)', 0, 24),

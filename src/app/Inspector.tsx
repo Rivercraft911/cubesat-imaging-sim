@@ -99,6 +99,9 @@ function Orbit({ scenario, onChange, onSelectPass }: ScenarioSettings & Pick<Ins
       <NumberField label="Ascending node LTAN" unit="h" value={scenario.ltanHours} min={0} max={24} step={0.25} onChange={ltanHours => update({ ltanHours })} />
     </div>
     <p className="note">At time zero the spacecraft is closest to the target. Positive offset moves the pass to the right of its ground track.</p>
+    <SelectField label="Ground surface" value={scenario.terrainModel ?? 'ellipsoid'}
+      options={[{ value: 'bay-relief', label: 'Bay Area terrain · USGS' }, { value: 'ellipsoid', label: 'Reference ellipsoid' }]}
+      onChange={value => update({ terrainModel: value === 'bay-relief' ? 'bay-relief' : 'ellipsoid' })} />
     <SelectField label="Pass heading" value={scenario.ascending ? 'ascending' : 'descending'}
       options={[{ value: 'ascending', label: 'Ascending · northbound' }, { value: 'descending', label: 'Descending · southbound' }]}
       onChange={value => update({ ascending: value === 'ascending' })} />

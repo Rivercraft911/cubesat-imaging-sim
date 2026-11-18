@@ -40,6 +40,7 @@ export interface Target {
   id: string; name: string; latitudeDeg: number; longitudeDeg: number; heightM: number;
 }
 export interface Scenario {
+  terrainModel?: 'bay-relief' | 'ellipsoid';
   version: 1; target: Target; altitudeM: number; epochISO: string; ltanHours: number;
   ascending: boolean; passOffsetKm: number; pointing: Pointing; offNadirDeg: number; rollDeg: number;
   cameras: CameraConfig[];

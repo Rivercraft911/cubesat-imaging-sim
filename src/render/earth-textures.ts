@@ -1,4 +1,5 @@
 import * as THREE from "three/webgpu";
+import { BAY_ELEVATION } from "../data/bay-elevation";
 import { publicAsset } from "../assets";
 
 /** Actual source imagery, with mipmaps for native sensor and globe sampling. */
@@ -17,7 +18,7 @@ export async function loadEarthTextures() {
   };
   // Wait for every independent load so a failed sibling cannot leak textures
   // that finish later than the first rejected image request.
-  const loaded = await Promise.allSettled([
+  const photographs = Promise.allSettled([
     load("earth-day.jpg"),
     load("earth-night.jpg"),
     load("earth-clouds.webp"),
@@ -31,16 +32,26 @@ export async function loadEarthTextures() {
       return clear;
     }),
   ]);
+  const [loaded, terrain] = await Promise.all([
+    photographs,
+    loader.loadAsync(publicAsset(BAY_ELEVATION.file)).catch(() => undefined),
+  ]);
   const failure = loaded.find((result) => result.status === "rejected");
   if (failure?.status === "rejected") {
     for (const result of loaded)
       if (result.status === "fulfilled") result.value.dispose();
+    terrain?.dispose();
     throw failure.reason;
   }
   const [day, night, cloud, western, westernNight, regionalCloud, stanfordNight] = loaded.map(
     (result) => (result as PromiseFulfilledResult<THREE.Texture>).value,
   );
   cloud.colorSpace = THREE.NoColorSpace;
+  if (terrain) {
+    terrain.colorSpace = THREE.NoColorSpace;
+    terrain.generateMipmaps = false;
+    terrain.minFilter = terrain.magFilter = THREE.LinearFilter;
+  }
   const fallback = new THREE.DataTexture(
     new Uint8Array([40, 48, 46, 255]),
     1,
@@ -57,7 +68,9 @@ export async function loadEarthTextures() {
     regionalCloud,
     stanfordNight,
     fallback,
+    terrain,
     dispose() {
+      terrain?.dispose();
       for (const texture of [
         day,
         night,

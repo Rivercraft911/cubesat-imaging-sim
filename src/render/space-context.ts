@@ -25,6 +25,7 @@ import {
 } from "./camera-guides";
 import type { CloudLayer } from "./cloud-layer";
 import { CLOUD_EQUATORIAL_RADIUS_M, CLOUD_POLAR_RADIUS_M } from "./cloud-layer";
+import { addGlobeRelief } from "./globe-relief";
 import { startWideDrag } from "./wide-mount-drag";
 import type { WideMountDragMode, WideMountDragHandler } from "./types";
 import { createCameraPicking } from "./camera-picking";
@@ -45,6 +46,7 @@ export async function createSpaceContext(
   westernNight: THREE.Texture,
   stanfordNight: THREE.Texture,
   cloudLayer: CloudLayer,
+  terrain?: THREE.Texture,
 ) {
   const geometryKey = (s: Scenario) => JSON.stringify([s.body,
     s.cameras.map(c => [c.id, c.housingDiameterMm, c.housingLengthMm, c.lens.profileId])]);
@@ -166,6 +168,10 @@ export async function createSpaceContext(
   );
   planet.rotation.x = Math.PI / 2;
   planet.scale.y = 0.9966471893352525; // scale must be local polar Y before rotation
+  // Build the regional mesh on first use in Space. Sensor-only sessions
+  // sample the DEM directly and need neither the CPU decode nor the vertices.
+  let pendingTerrain = terrain;
+  let setRelief: ReturnType<typeof addGlobeRelief>;
   planetScene.add(planet);
   const cloudsMaterial = new THREE.MeshStandardNodeMaterial({
     color: 0xffffff,
@@ -369,6 +375,12 @@ export async function createSpaceContext(
       planetMaterial.needsUpdate = true;
     },
     render(width: number, height: number) {
+      const useRelief = currentScenario.terrainModel === "bay-relief";
+      if (useRelief && pendingTerrain) {
+        setRelief = addGlobeRelief(planet, pendingTerrain);
+        pendingTerrain = undefined;
+      }
+      setRelief?.(useRelief);
       // The planet pass is independent of the millimeter-range hardware pass.
       // A 1 m near plane quantizes Earth and the 8 km cloud shell to one depth.
       planetCamera.near = Math.max(

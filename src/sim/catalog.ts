@@ -74,7 +74,7 @@ function wideCamera(id: 'wideA' | 'wideB', faceY: number): CameraConfig {
 
 export function createDefaultScenario(): Scenario {
   return {
-    version: 1, target: { ...TARGETS[0] }, altitudeM: 550_000,
+    version: 1, terrainModel: 'bay-relief', target: { ...TARGETS[0] }, altitudeM: 550_000,
     epochISO: '2026-10-03T00:00:00.000Z', ltanHours: 18, ascending: true, passOffsetKm: 0,
     pointing: 'target', offNadirDeg: 0, rollDeg: 0,
     body: {

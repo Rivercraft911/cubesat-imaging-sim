@@ -1,4 +1,5 @@
 import * as THREE from "three/webgpu";
+import { createBayTerrain } from "./bay-terrain";
 import type { CloudLayer } from "./cloud-layer";
 import type { AerialTransfer } from "./aerial-transfer";
 import { earthSurfaceCoordinates, earthDayColor, earthNightColor } from "./earth-surface";
@@ -36,6 +37,7 @@ export function makeSensorMaterial(
   stanfordNight: THREE.Texture,
   cloudLayer: CloudLayer,
   aerial: AerialTransfer,
+  terrain?: THREE.Texture,
 ) {
   const u = {
     sensor: uniform(new THREE.Vector3(3840, 2160, 0.002)),
@@ -44,6 +46,7 @@ export function makeSensorMaterial(
     rotation: uniform(new THREE.Matrix3()),
     origin: uniform(new THREE.Vector3()),
     sun: uniform(new THREE.Vector3(1, 0, 0)),
+    terrainEnabled: uniform(1),
     earthC: uniform(0),
     localOrigin: uniform(new THREE.Vector3()),
     groundReference: uniform(new THREE.Vector3(6378137, 0, 0)),
@@ -64,6 +67,7 @@ export function makeSensorMaterial(
     crop: uniform(new THREE.Vector4(0, 0, 3840, 2160)),
     showShip: uniform(1),
   };
+  const terrainIntersection = terrain && createBayTerrain(terrain);
   const baseNode = texture(ground);
   const groundNode = texture(ground),
     shipNode = cubeTexture(ship);
@@ -82,18 +86,36 @@ export function makeSensorMaterial(
         rayFn(p, u.sensor, u.lens, u.edgeFactor) as ReturnType<typeof vec4>,
       ).toVar();
       const ray = vec3(u.rotation.mul(camRay.xyz)).normalize().toVar();
-      const hit = vec4(
+      const ellipsoid = vec4(
         hitFn(u.origin, ray, u.earthC) as ReturnType<typeof vec4>,
       ).toVar();
       // Image samples execute for every fragment. A branch on Earth/raster
       // coverage would make implicit derivatives (and mip selection) undefined.
-      const surface = hit.xyz;
-      const coords = earthSurfaceCoordinates(surface);
-      const base = earthDayColor(day, western, coords).toVar();
-      const delta = hit.w.greaterThan(0).select(
-        u.localOrigin.add(ray.mul(hit.w)),
-        surface.mul(6378137).sub(u.groundReference),
+      const ellipsoidCoords = earthSurfaceCoordinates(ellipsoid.xyz);
+      const baseDelta = ellipsoid.w.greaterThan(0).select(
+        u.localOrigin.add(ray.mul(ellipsoid.w)),
+        ellipsoid.xyz.mul(6378137).sub(u.groundReference),
       );
+      let hit: THREE.Node<"vec4"> = ellipsoid;
+      let surface = ellipsoid.xyz, coords = ellipsoidCoords, delta = baseDelta;
+      if (terrainIntersection) {
+        const shift = vec2(0).toVar();
+        If(u.terrainEnabled.greaterThan(0.5), () => {
+          shift.assign(terrainIntersection(ellipsoid, ray, ellipsoidCoords.geographic));
+        });
+        const back = ray.mul(shift.x.negate()).toVar();
+        const elevated = ellipsoid.xyz.add(back.div(6378137)).toVar();
+        hit = vec4(elevated, ellipsoid.w.sub(shift.x)).toVar();
+        const normal = elevated.mul(vec3(1, 1, 1.0067394967422765)).normalize();
+        // Subtract the height along the geodetic normal for map lookup.
+        // Apply this meter-scale increment to the original local ray hit so
+        // telephoto UVs keep the precision of the camera-relative origin.
+        const mapOffset = back.sub(normal.mul(shift.y)).toVar();
+        surface = ellipsoid.xyz.add(mapOffset.div(6378137)).toVar();
+        coords = earthSurfaceCoordinates(surface);
+        delta = baseDelta.add(mapOffset);
+      }
+      const base = earthDayColor(day, western, coords).toVar();
       const mercator = vec2(
         localUV(delta, u.groundReference, u.referenceLat) as ReturnType<
           typeof vec2
