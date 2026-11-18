@@ -19,6 +19,7 @@ import { LinkStrip } from './LinkStrip';
 import { useEngine } from './useEngine';
 import { useImagery } from './useImagery';
 import { editCamera } from '../sim/camera-edit';
+import { fitWideLens } from '../sim/wide-lens';
 import { DEFAULT_SOURCE_SELECTION, displaySelection, selectSourceCamera } from './view-selection';
 
 export default function App({ onRendererFailure }: { onRendererFailure: (message: string) => void }) {
@@ -225,7 +226,7 @@ export default function App({ onRendererFailure }: { onRendererFailure: (message
           linkControls={linkControls} ready={linkStart.enabled} />}
       </div>
       <OpticalControls camera={camera} cameras={scenario.cameras} panel={panel} pairedView={displayView !== 'image'}
-        onCamera={selectCamera}
+        onCamera={selectCamera} onLens={choice => changeCamera(fitWideLens(camera, choice))}
         onFocalLength={focalLengthMm => changeCamera({ lens: { ...camera.lens, focalLengthMm } })}
         onPanel={id => setPanel(current => current === id ? null : id)} />
       <Timeline time={time} onFrameTime={setTime} onSeek={scrubTime} playing={playing && !linkActive} setPlaying={changePlayback}

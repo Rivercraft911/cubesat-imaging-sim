@@ -5,23 +5,27 @@ import { Icon } from './Icon';
 import { Inspector } from './Inspector';
 import type { MountTool } from './WideMountEditor';
 import { fmt } from './fields';
+import { wideLensChoice, type WideLensChoice } from '../sim/wide-lens';
+import { LENS_PROFILES } from '../sim/lens-profiles';
 import type { useDownlink } from './useDownlink';
 import type { LiveLinkControls } from './LinkStrip';
 
 export type Panel = 'optics' | 'orbit' | 'geometry' | 'downlink';
 const panels: Record<Panel, string> = { optics: 'Camera', orbit: 'Orbit', geometry: 'Spacecraft', downlink: 'Live link' };
 
-export function OpticalControls({ camera, cameras, panel, pairedView, onCamera, onFocalLength, onPanel }: {
+export function OpticalControls({ camera, cameras, panel, pairedView, onCamera, onFocalLength, onLens, onPanel }: {
   camera: CameraConfig;
   cameras: readonly CameraConfig[];
   panel: Panel | null;
   pairedView: boolean;
   onCamera: (id: CameraId) => void;
+  onLens: (choice: WideLensChoice) => void;
   onFocalLength: (focalLengthMm: number) => void;
   onPanel: (panel: Panel) => void;
 }) {
   const isMain = camera.id === 'main';
   const focalLength = camera.lens.focalLengthMm;
+  const lensChoice = isMain ? undefined : wideLensChoice(camera.lens);
   return (
     <div className="optical-strip">
       <label className="camera-control">
@@ -31,6 +35,14 @@ export function OpticalControls({ camera, cameras, panel, pairedView, onCamera, 
           </option>)}
         </select>
       </label>
+      {!isMain && <label className="camera-control">
+        <select aria-label="Wide pair lens" title="Fit the same lens to both wide cameras" value={lensChoice}
+          onChange={event => onLens(event.target.value as WideLensChoice)}>
+          <option value="study">Study fisheye · 190°</option>
+          {LENS_PROFILES.map(profile => <option key={profile.id} value={profile.id}>{profile.name} · {profile.optics.maxFovDeg}°</option>)}
+          {lensChoice === 'custom' && <option disabled value="custom">Custom optics</option>}
+        </select>
+      </label>}
       <label className="focal-control">
         <span>{fmt(focalLength, focalLength < 10 ? 1 : 0)} <small>mm</small></span>
         <input aria-label="Focal length" aria-valuetext={`${fmt(focalLength, 4)} mm`} type="range"

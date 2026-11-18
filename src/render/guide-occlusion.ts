@@ -150,6 +150,8 @@ export class GuideOcclusion {
   trace(origin: THREE.Vector3, direction: THREE.Vector3, cameraId: CameraId) {
     let closest: { triangleId: number; distance: number } | null = null;
     for (const part of this.parts) {
+      // Same first-party lens masking rule as the hardware capture.
+      if (part.mount?.userData.cameraId === cameraId && part.mount.userData.catalogLensHousing) continue;
       this.origin.copy(origin);
       this.direction.copy(direction);
       if (part.mount) {

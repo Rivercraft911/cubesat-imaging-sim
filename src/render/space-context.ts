@@ -47,7 +47,7 @@ export async function createSpaceContext(
   cloudLayer: CloudLayer,
 ) {
   const geometryKey = (s: Scenario) => JSON.stringify([s.body,
-    s.cameras.map(c => [c.id, c.housingDiameterMm, c.housingLengthMm])]);
+    s.cameras.map(c => [c.id, c.housingDiameterMm, c.housingLengthMm, c.lens.profileId])]);
   const poseKey = (s: Scenario) => JSON.stringify(s.cameras.map(c =>
     [c.positionBodyM, c.yawDeg, c.pitchDeg, c.rollDeg]));
   let shipKey = geometryKey(scenario), mountKey = poseKey(scenario);

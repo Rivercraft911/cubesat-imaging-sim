@@ -75,6 +75,7 @@ export function ImageWorkspace({
   const inspectionMode = status.inspectionMode ?? inspection;
   const receivedPanorama = received && downlink.receiver === '360';
   const interactivePanorama = view === 'panorama' && panoramaProjection === 'perspective';
+  const nominalOverlap = Math.min(metrics.horizontalFovDeg, metrics.verticalFovDeg) - 180;
   const nativeSize = view === 'panorama' ? '4096 × 2048' : `${sensor.width} × ${sensor.height}`;
   const coarseRaster = !received && view === 'image' && image && Number.isFinite(metrics.gsdM)
     && image.sourceResolutionM > metrics.gsdM;
@@ -172,6 +173,8 @@ export function ImageWorkspace({
             {view === 'image' && <p>Aerial coverage blends over dated satellite imagery. Source detail varies across the frame.</p>}
             {view === 'panorama' && <p>The viewer looks into a 360° image. Export saves a 4096 × 2048 equirectangular PNG; changing the view angle does not change the camera lenses.</p>}
             {!received && <p>{model ? MAIN_LIGHTING_NOTES[model] : 'Sun, cloud and limb lighting are illustrative.'}</p>}
+            {view === 'panorama' && <p>Two opposed lenses with these settings give {fmt(Math.abs(nominalOverlap), 1)}° of
+              {nominalOverlap >= 0 ? ' overlap' : ' uncovered field'} along the limiting sensor axis, before spacecraft masking.</p>}
             {view === 'panorama' && <p>The angular stitch does not correct nearby spacecraft parallax.</p>}
             {view === 'space' && <p>Filled FOV guides show nominal lens coverage. Red sectors mark sampled spacecraft obstruction. Green selection and red obstruction guides are excluded from captures.</p>}
             {status.warnings?.length ? <p>{status.warnings.join(' · ')}</p> : null}

@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { cameraBodyRotation } from '../sim/camera';
+import { addLensExterior } from './lens-exterior';
 import { makeRearDipole } from './rear-dipole';
 import type { CameraId, Scenario, Vec3 } from '../sim/types';
 
@@ -68,13 +69,10 @@ function spacecraftMaterials() {
       map: cellAlbedo(), metalness: 0.03, roughness: 0.27,
       specularIntensity: 0.32, clearcoat: 0.20, clearcoatRoughness: 0.17,
     }),
+    barrel: standard(new THREE.Color(0.039, 0.042, 0.045), 0.6, 0.34),
     glass: new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(0.003, 0.007, 0.014), metalness: 0.35, roughness: 0.055,
-      clearcoat: 0.90, clearcoatRoughness: 0.08,
-    }),
-    fisheyeGlass: new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(0.006, 0.014, 0.020), metalness: 0.18, roughness: 0.08,
-      ior: 1.54, clearcoat: 1, clearcoatRoughness: 0.055,
+      vertexColors: true, roughness: 0.065, ior: 1.52,
+      specularColor: new THREE.Color(0.74, 0.85, 1), specularIntensity: 0.7,
     }),
     selection: new THREE.MeshBasicMaterial({
       color: 0x7bff3d, side: THREE.BackSide, depthWrite: false, toneMapped: false,
@@ -281,51 +279,6 @@ function wing(root: THREE.Group, m: Materials, body: Scenario['body'], side: num
   }
 }
 
-function axialBarrel(parent: THREE.Group, material: THREE.Material, profile: [number, number][]) {
-  const profilePoints = profile.map(([r, z]) => new THREE.Vector2(r, z));
-  const geometry = new THREE.LatheGeometry(profilePoints, 64);
-  mesh(parent, geometry, material, [0, 0, 0]).rotation.x = Math.PI / 2;
-}
-
-function glassCap(parent: THREE.Group, material: THREE.Material, radius: number, centerZ: number, polarAngle: number) {
-  const geometry = new THREE.SphereGeometry(radius, 64, 28, 0, Math.PI * 2, 0, polarAngle);
-  mesh(parent, geometry, material, [0, 0, centerZ]).rotation.x = Math.PI / 2;
-}
-
-/** Shape reference: Entaniya M12 220. The dome center is the model's pupil. */
-function fisheyeHousing(mount: THREE.Group, m: Materials, radius: number, length: number) {
-  const domeRear = Math.min(radius * 0.40, length * 0.65);
-  const rearRadius = Math.sqrt(radius ** 2 - domeRear ** 2);
-  const setback = length - domeRear;
-  const clearance = Math.tan(THREE.MathUtils.degToRad(12));
-  const flangeRadius = Math.min(radius * 0.69, (length - setback * 0.20) / clearance);
-  const neckRadius = Math.min(radius * 0.47, (length - setback * 0.53) / clearance);
-  const shoulderRadius = Math.min(rearRadius * 0.96, domeRear / clearance);
-  axialBarrel(mount, m.black, [
-    [0, -length], [flangeRadius, -length], [flangeRadius, -length + setback * 0.20],
-    [neckRadius, -length + setback * 0.32], [neckRadius, -length + setback * 0.53],
-    [shoulderRadius, -domeRear], [0, -domeRear],
-  ]);
-  // The exposed surface passes the equator. No lip projects ahead of the glass.
-  glassCap(mount, m.fisheyeGlass, radius, 0, Math.acos(-domeRear / radius));
-}
-
-function mainHousing(mount: THREE.Group, m: Materials, radius: number, length: number) {
-  const nose = Math.min(length * 0.12, radius * 0.20);
-  const opening = radius * 0.77;
-  axialBarrel(mount, m.black, [
-    [radius * 0.67, -length], [radius * 0.67, -length * 0.79],
-    [radius * 0.82, -length * 0.76], [radius * 0.82, -length * 0.28],
-    [radius, -length * 0.25], [radius, -nose], [radius * 0.92, -nose * 0.76],
-    [radius * 0.92, -nose * 0.15], [radius * 0.88, 0], [opening, 0],
-    [opening, -nose * 0.60],
-  ]);
-  const lensEdge = opening * 1.02;
-  const sag = Math.min(radius * 0.058, nose * 0.42);
-  const sphereRadius = (lensEdge ** 2 + sag ** 2) / (2 * sag);
-  glassCap(mount, m.glass, sphereRadius, -nose * 0.08 - sphereRadius, Math.asin(lensEdge / sphereRadius));
-}
-
 function addCameraOutline(mount: THREE.Group, material: THREE.Material) {
   const outline = new THREE.Group();
   outline.name = CAMERA_OUTLINE;
@@ -356,8 +309,7 @@ function cameraHousings(root: THREE.Group, m: Materials, scenario: Scenario) {
     mount.userData.cameraId = config.id;
     const length = config.housingLengthMm / 1000;
     const radius = config.housingDiameterMm / 2000;
-    if (config.id === 'main') mainHousing(mount, m, radius, length);
-    else fisheyeHousing(mount, m, radius, length);
+    addLensExterior(mount, m.barrel, m.glass, radius, length, config.id === 'main', config.lens.profileId);
     mergeParts(mount);
     addCameraOutline(mount, m.selection);
     root.add(mount);

@@ -5,6 +5,7 @@ import { getSensor, SENSOR_PROFILES } from '../sim';
 import type { CameraConfig, CameraId, Lens, Pointing, Projection, Scenario, Vec3 } from '../sim';
 import { fmt, NumberField, SelectField } from './fields';
 import { editCamera } from '../sim/camera-edit';
+import { getLensProfile } from '../sim/lens-profiles';
 import { WideMountEditor, type MountTool } from './WideMountEditor';
 
 type InspectorProps = {
@@ -41,7 +42,9 @@ function Optics({ camera, scenario, onChange, onCameraChange }: CameraSettings) 
 
   return <>
     <h2 className="section-heading">{camera.id === 'main' ? camera.name : 'Wide pair'} optics</h2>
-    {camera.id !== 'main' && <p className="note">Edits apply to both wide cameras.</p>}
+    {camera.id !== 'main' && <p className="note">Edits apply to both wide cameras.
+      {lens.profileId && <> Mounted barrel · <a href={getLensProfile(lens.profileId).source} target="_blank" rel="noreferrer">{getLensProfile(lens.profileId).name} specifications</a></>}
+    </p>}
     <SelectField label="Sensor" value={camera.sensorId} onChange={sensorId => onCameraChange({ sensorId })}
       options={SENSOR_PROFILES.map(profile => ({ value: profile.id, label: profile.name }))} />
     {sensor.id === 'custom' ? <div className="field-grid">
@@ -56,7 +59,7 @@ function Optics({ camera, scenario, onChange, onCameraChange }: CameraSettings) 
     </p>}
     <SelectField label="Lens projection" value={lens.projection} options={PROJECTIONS} onChange={value => {
       const projection = value as Projection;
-      changeLens({ projection, maxFovDeg: Math.min(lens.maxFovDeg, projection === 'rectilinear' ? 180 : 360) });
+      changeLens({ projection, fThetaEdgeFactor: undefined, maxFovDeg: Math.min(lens.maxFovDeg, projection === 'rectilinear' ? 180 : 360) });
     }} />
     <div className="field-grid">
       <NumberField label="Focal length" unit="mm" value={lens.focalLengthMm} min={0.01} max={10000} step={0.1} digits={4} onChange={focalLengthMm => changeLens({ focalLengthMm })} />

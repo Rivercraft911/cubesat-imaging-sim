@@ -48,8 +48,14 @@ export function createHardwareCapture(
       const oldClear = new Color4();
       renderer.getClearColor(oldClear);
       const alpha = renderer.getClearAlpha();
+      // Catalog angular coverage already includes the camera's own optics and
+      // barrel. Its exterior stays in every other camera's hardware cube.
+      const ownHousing = scene.getObjectByName(`Camera mount ${camera.id}`);
+      const discardHousing = ownHousing?.userData.catalogLensHousing ? ownHousing : undefined;
+      const housingVisible = discardHousing?.visible ?? false;
       renderer.setClearColor(0, 0);
       try {
+        if (discardHousing) discardHousing.visible = false;
         const pose = cameraPose(sample, camera);
         cam.position
           .fromArray(pose.positionEcefM)
@@ -58,6 +64,7 @@ export function createHardwareCapture(
         cam.update(renderer, scene);
         keys.set(cam, key);
       } finally {
+        if (discardHousing) discardHousing.visible = housingVisible;
         renderer.setRenderTarget(previous);
         renderer.setClearColor(oldClear, alpha);
       }

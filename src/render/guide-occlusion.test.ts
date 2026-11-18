@@ -24,3 +24,24 @@ it('tracks translated and tilted blocking triangles in the spacecraft frame', ()
     expect(index.vertex(hit.triangleId, corner, new THREE.Vector3()).x).toBeCloseTo(0.07);
   }
 });
+
+it('excludes a catalog lens barrel only for the camera it belongs to', () => {
+  const ship = new THREE.Group();
+  const mount = new THREE.Group();
+  mount.userData.cameraId = 'wideA';
+  mount.userData.catalogLensHousing = true;
+  const geometry = new THREE.PlaneGeometry(0.02, 0.02);
+  const material = new THREE.MeshStandardMaterial();
+  const barrel = new THREE.Mesh(geometry, material);
+  barrel.position.z = 0.01;
+  mount.add(barrel);
+  const hardware = new THREE.Mesh(geometry, material);
+  hardware.position.z = 0.02;
+  ship.add(mount, hardware);
+  const origin = new THREE.Vector3(), ray = new THREE.Vector3(0, 0, 1);
+  const index = getGuideOcclusion(ship);
+  expect(index.trace(origin, ray, 'wideA')?.distance).toBeCloseTo(0.02);
+  expect(index.trace(origin, ray, 'wideB')?.distance).toBeCloseTo(0.01);
+  geometry.dispose();
+  material.dispose();
+});

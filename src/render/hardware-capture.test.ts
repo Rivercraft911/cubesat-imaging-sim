@@ -36,3 +36,33 @@ it("renders only the requested hardware cube and reuses it across lens edits", (
     scene.environment.dispose();
   }
 });
+
+it("keeps catalog housings in other cameras' captures and restores visibility after a failed capture", () => {
+  const renderer = {
+    getRenderTarget: () => null, setRenderTarget: vi.fn(),
+    getClearColor: vi.fn(), setClearColor: vi.fn(), getClearAlpha: () => 1,
+  } as unknown as THREE.WebGPURenderer;
+  const scene = new THREE.Scene();
+  const own = new THREE.Group(), other = new THREE.Group();
+  own.name = 'Camera mount wideA';
+  own.userData.catalogLensHousing = true;
+  other.name = 'Camera mount wideB';
+  scene.add(own, other);
+  const capture = createHardwareCapture(renderer, scene);
+  const scenario = createDefaultScenario();
+  const sample = sampleState(scenario);
+  const observed: boolean[][] = [];
+  const draw = vi.spyOn(THREE.CubeCamera.prototype, 'update').mockImplementation(() => {
+    observed.push([own.visible, other.visible]);
+    if (observed.length === 2) throw Error('capture failed');
+  });
+  try {
+    capture.update(scenario.cameras[2], sample, 0);
+    expect(() => capture.update(scenario.cameras[1], sample, 0)).toThrow('capture failed');
+    expect(observed).toEqual([[true, true], [false, true]]);
+    expect(own.visible).toBe(true);
+  } finally {
+    draw.mockRestore();
+    capture.dispose();
+  }
+});
