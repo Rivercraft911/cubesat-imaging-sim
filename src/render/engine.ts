@@ -296,8 +296,9 @@ export async function createImagingEngine(
     function configureStitch() {
       bindPanoramaCameras(stitch, scenario, sample);
     }
-    function renderSensorTo(id: CameraId, target: THREE.RenderTarget) {
+    function renderSensorTo(id: CameraId, target: THREE.RenderTarget, showShip: boolean) {
       const s = configureSensor(id);
+      sensor.u.showShip.value = showShip ? 1 : 0;
       const camera = config(id);
       const passLighting = id !== "main" || mainImageModel(camera) === "pass";
       optics.render({
@@ -325,8 +326,9 @@ export async function createImagingEngine(
       target.texture.generateMipmaps = true;
       target.texture.minFilter = THREE.LinearMipmapLinearFilter;
       target.setSize(s.width, s.height);
-      hardware.update(config(id), sample, hardwareGeometryRevision);
-      renderSensorTo(id, target);
+      const showShip = hardware.visible(space.spacecraft, config(id), s, hardwareGeometryRevision);
+      if (showShip) hardware.update(config(id), sample, hardwareGeometryRevision);
+      renderSensorTo(id, target, showShip);
       nativeKeys.set(id, key);
       return target;
     }

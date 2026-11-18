@@ -167,8 +167,9 @@ export function makeSensorMaterial(
           result.assign(aerial.sky(u.origin, ray, u.sun));
         });
         If(
-          cloud.w
-            .greaterThan(0)
+          // Opacity was sampled above with uniform derivatives. The atmospheric
+          // LUTs use explicit level zero, including inside this per-pixel branch.
+          cloudOpacity.greaterThan(0).and(cloud.w.greaterThan(0))
             .and(hit.w.lessThanEqual(0).or(cloud.w.lessThan(hit.w))),
           () => {
             const color = vec3(0.88).mul(cloudLayer.sunlight(cloud.xyz, u.sun));

@@ -1,4 +1,5 @@
 import * as THREE from "three/webgpu";
+import { createHardwareVisibility } from "./hardware-visibility";
 import Color4 from "three/src/renderers/common/Color4.js";
 import {
   cameraPose,
@@ -23,9 +24,11 @@ export function createHardwareCapture(
     generateMipmaps: true,
     minFilter: THREE.LinearMipmapLinearFilter,
   });
-  const cubeCamA = new THREE.CubeCamera(0.0001, 4, cubeA),
-    cubeCamB = new THREE.CubeCamera(0.0001, 4, cubeB);
+  const near = 0.0001;
+  const cubeCamA = new THREE.CubeCamera(near, 4, cubeA),
+    cubeCamB = new THREE.CubeCamera(near, 4, cubeB);
   return {
+    visible: createHardwareVisibility(cubeA.width, near),
     front: cubeA.texture as THREE.CubeTexture,
     rear: cubeB.texture as THREE.CubeTexture,
     update(
