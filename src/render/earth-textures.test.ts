@@ -4,7 +4,7 @@ import { loadEarthTextures } from "./earth-textures";
 
 it("releases successful sibling loads even when they finish after a failed asset", async () => {
   const textures = Array.from(
-    { length: 5 },
+    { length: 6 },
     () => new THREE.Texture<HTMLImageElement>(),
   );
   const disposed = textures.map((texture) => vi.spyOn(texture, "dispose"));
@@ -19,13 +19,13 @@ it("releases successful sibling loads even when they finish after a failed asset
       const request = index++;
       if (request === 0)
         return Promise.reject(new Error("Missing source asset"));
-      if (request === 5) return last;
+      if (request === 6) return last;
       return Promise.resolve(textures[request - 1]);
     });
   try {
     const pending = loadEarthTextures();
     const rejected = expect(pending).rejects.toThrow("Missing source asset");
-    finishLast(textures[4]);
+    finishLast(textures[5]);
     await rejected;
     for (const dispose of disposed) expect(dispose).toHaveBeenCalledOnce();
   } finally {
