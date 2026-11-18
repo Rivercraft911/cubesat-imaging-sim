@@ -71,3 +71,27 @@ it("restores Space tone mapping and target after failure, then accepts the next 
   capture.dispose();
   originalTarget.dispose();
 });
+
+it("rejects invalid dimensions before drawing sources or allocating a decoded stitch", async () => {
+  vi.stubGlobal("document", { createElement: () => ({}) });
+  const native = vi.fn(), configureStitch = vi.fn();
+  const renderer = {
+    backend: { device: { limits: { maxTextureDimension2D: 8192 } } },
+    getRenderTarget: vi.fn(), setRenderTarget: vi.fn(),
+    getClearColor: vi.fn(), getClearAlpha: vi.fn(), setClearColor: vi.fn(),
+  };
+  const input = {
+    renderer, withTime: (_pts: unknown, draw: () => void) => draw(),
+    config: vi.fn(), sensorInfo: () => ({ width: 64, height: 2 }),
+    sources: { native }, configureStitch, changed: vi.fn(),
+  };
+  const capture = createCapturePipeline(input as unknown as Parameters<typeof createCapturePipeline>[0]);
+  const frame = {} as HTMLCanvasElement;
+  for (const size of [0, 2.5, 8193]) {
+    await expect(capture.canvas("main", size, 2)).rejects.toThrow(RangeError);
+    await expect(capture.stitchDecodedFrames(frame, frame, 2, size)).rejects.toThrow(RangeError);
+  }
+  expect(native).not.toHaveBeenCalled();
+  expect(configureStitch).not.toHaveBeenCalled();
+  capture.dispose();
+});

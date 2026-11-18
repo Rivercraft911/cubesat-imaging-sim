@@ -98,6 +98,21 @@ export function createCapturePipeline({
       renderer.toneMapping = toneMapping;
     }
   }
+  function validateDimensions(width: number, height: number) {
+    const limit = (renderer.backend as unknown as { device: GPUDevice })
+      .device.limits.maxTextureDimension2D;
+    if (
+      !Number.isInteger(width) ||
+      !Number.isInteger(height) ||
+      width < 1 ||
+      height < 1 ||
+      width > limit ||
+      height > limit
+    )
+      throw new RangeError(
+        `Capture dimensions must be integers from 1 to ${limit}.`,
+      );
+  }
   function drawCapture(
     id: CaptureCamera,
     w?: number,
@@ -109,6 +124,9 @@ export function createCapturePipeline({
       const sensor = id === "panorama" ? null : sensorInfo(config(id));
       const nativeW = sensor?.width ?? 4096,
         nativeH = sensor?.height ?? 2048;
+      const width = w ?? nativeW,
+        height = h ?? nativeH;
+      validateDimensions(width, height);
       let aspect = nativeW / nativeH;
       let crop: THREE.Vector4 | undefined;
       if (
@@ -134,21 +152,6 @@ export function createCapturePipeline({
       }
       if (id === "panorama") sources.panorama();
       else sources.native(id, crop);
-      const width = w ?? nativeW,
-        height = h ?? nativeH;
-      const limit = (renderer.backend as unknown as { device: GPUDevice })
-        .device.limits.maxTextureDimension2D;
-      if (
-        !Number.isInteger(width) ||
-        !Number.isInteger(height) ||
-        width < 1 ||
-        height < 1 ||
-        width > limit ||
-        height > limit
-      )
-        throw new RangeError(
-          `Capture dimensions must be integers from 1 to ${limit}.`,
-        );
       captureTarget.setSize(width, height);
       let vw = width,
         vh = height;
@@ -203,6 +206,7 @@ export function createCapturePipeline({
     ) {
       return enqueue(() =>
         withRendererState(async () => {
+          validateDimensions(w, h);
           const a = new THREE.Texture(front),
             b = new THREE.Texture(rear);
           for (const t of [a, b]) {
