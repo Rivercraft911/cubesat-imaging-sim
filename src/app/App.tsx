@@ -60,7 +60,9 @@ export default function App({ onRendererFailure }: { onRendererFailure: (message
   const { view: displayView, cameraId: activeCameraId } = displaySelection(source, received ? downlink.receiver : null);
   const spaceMountMode = displayView === 'space' && panel === 'geometry' && activeCameraId !== 'main' ? mountMode : null;
   const imageryScenario = useMemo(() => comparison ? withMainFocalLength(comparison.scenario, Math.max(...comparisonFocals)) : scenario, [comparison, comparisonFocals, scenario]);
-  const { image, baseImage, progress } = useImagery(engine, version, imageryScenario, comparison?.timeS ?? time, comparisonBusy);
+  const playbackRate = linkActive ? 1 : playing ? speed : 0;
+  const { image, baseImage, progress } = useImagery(engine, version, imageryScenario, comparison?.timeS ?? time,
+    comparisonBusy, comparison || comparisonBusy ? 0 : playbackRate);
 
   const camera = scenario.cameras.find(item => item.id === activeCameraId)!;
   const sensor = getSensor(camera.sensorId, scenario.customSensor);

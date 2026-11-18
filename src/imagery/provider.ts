@@ -231,7 +231,11 @@ export async function preparedShot(
   bounds: Bounds,
   signal: AbortSignal,
   finerThanM = Infinity,
-  options: { sensorSpacingM?: number; prefetch?: boolean } = {},
+  options: {
+    sensorSpacingM?: number;
+    prefetch?: boolean;
+    needsSource?: (source: ImagerySource & { boundsMercator: Bounds }) => boolean;
+  } = {},
 ): Promise<(GroundImage & ImagerySource) | null> {
   const list = await awaitPreparedIndex(signal);
   signal.throwIfAborted();
@@ -246,7 +250,7 @@ export async function preparedShot(
         p.boundsMercator[3] >= bounds[3],
     )
     .sort((a, b) => compareImagery(a, b, sensorSpacingM))[0];
-  if (!entry) return null;
+  if (!entry || options.needsSource?.(entry) === false) return null;
   const downloadSignal = AbortSignal.any([
     signal,
     AbortSignal.timeout(PREPARED_RASTER_TIMEOUT_MS),
@@ -271,11 +275,15 @@ export async function preparedShot(
   const [west, south, east, north] = entry.boundsMercator;
   const dx = (east - west) / entry.width,
     dy = (north - south) / entry.height;
-  const marginX = (bounds[2] - bounds[0]) * 0.1,
-    marginY = (bounds[3] - bounds[1]) * 0.1;
-  const left = Math.max(0, Math.floor((bounds[0] - marginX - west) / dx)),
+  // Reserve up to half a footprint for motion, bounded to 1024 extra
+  // source pixels per side. Large shots retain their original 10% guard.
+  const cropMargin = (span: number, pixel: number) =>
+    Math.max(span * 0.1, Math.min(span * 0.5, 1024 * pixel));
+  const marginX = cropMargin(bounds[2] - bounds[0], dx),
+    marginY = cropMargin(bounds[3] - bounds[1], dy);
+  let left = Math.max(0, Math.floor((bounds[0] - marginX - west) / dx)),
     top = Math.max(0, Math.floor((north - bounds[3] - marginY) / dy));
-  const right = Math.min(
+  let right = Math.min(
       entry.width,
       Math.ceil((bounds[2] + marginX - west) / dx),
     ),
@@ -283,6 +291,17 @@ export async function preparedShot(
       entry.height,
       Math.ceil((north - bounds[1] + marginY) / dy),
     );
+  // When most of a local image is already needed, retain its true boundary
+  // through the pass instead of decoding a series of nearly identical crops.
+  const pixelBudget = 6144 ** 2;
+  if (right - left >= entry.width * 0.75 && entry.width * (bottom - top) <= pixelBudget) {
+    left = 0;
+    right = entry.width;
+  }
+  if (bottom - top >= entry.height * 0.75 && (right - left) * entry.height <= pixelBudget) {
+    top = 0;
+    bottom = entry.height;
+  }
   // Crop while decoding; do not retain a 50MP prepared raster for a tiny shot.
   let image = await createImageBitmap(
     blob,

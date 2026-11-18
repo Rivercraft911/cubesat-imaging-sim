@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { computeMetrics, type Scenario } from "../sim";
 import type { GroundImage } from "../render";
-import { contains, shotBounds, type Bounds } from "../imagery/bounds";
+import { contains, shotBounds, withFadeMargin, type Bounds } from "../imagery/bounds";
+import { PASS_END_S } from "./playback-clock";
 import { needsAerial } from "../imagery/lod";
-import { DetailLoader } from "../imagery/detail-loader";
+import { DetailLoader, type PredictedFootprint } from "../imagery/detail-loader";
 import type { ImageryProgress } from "../imagery/provider";
 
 // Warm the prepared coverage used for a typical telephoto change.
@@ -17,14 +18,15 @@ export function useGroundDetail(
   fine: GroundImage | null,
   base: GroundImage | null,
   enabled: boolean,
+  playbackRate = 0,
 ) {
   const [detail, setDetail] = useState<GroundImage | null>(null);
   const [progress, setProgress] = useState<ImageryProgress>({
     state: "preview",
     message: "Opening satellite imagery",
   });
-  const latest = useRef({ scenario, timeS, fine, base });
-  latest.current = { scenario, timeS, fine, base };
+  const latest = useRef({ scenario, timeS, fine, base, playbackRate });
+  latest.current = { scenario, timeS, fine, base, playbackRate };
   const reconcile = useRef<(changed?: boolean) => void>(() => {});
   const track = useRef<() => void>(() => {});
   const prefetch = useRef<() => void>(() => {});
@@ -134,7 +136,22 @@ export function useGroundDetail(
       loader.prefetch(shotBounds(zoomed, frameTime), gsdM);
     };
     tick();
-    const poll = setInterval(tick, 350);
+    const poll = setInterval(() => {
+      tick();
+      const { scenario: live, timeS: frameTime, playbackRate: rate } = latest.current;
+      if (rate <= 0 || !geometry) return;
+      // Allow a local raster fetch and decode to finish while the current
+      // photographed footprint is still covered, including accelerated play.
+      const span = Math.min(PASS_END_S - frameTime, rate * 3);
+      const steps = Math.ceil(span / 20);
+      const forecast: PredictedFootprint[] = [];
+      for (let i = 1; i <= steps; i++) {
+        const ahead = frameTime + span * i / steps;
+        forecast.push({ bounds: withFadeMargin(shotBounds(live, ahead)),
+          sensorSpacingM: computeMetrics(live, "main", ahead).gsdM });
+      }
+      loader.prefetchMotion(forecast);
+    }, 350);
     return () => {
       reconcile.current = () => {};
       track.current = () => {};

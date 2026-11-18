@@ -7,6 +7,10 @@ export function needsAerial(gsdM: number, satelliteSpacingM: number, alreadyAeri
 
 export type ImagerySource = { sourceResolutionM: number; singlePass?: boolean };
 
+export function isAerialImage(id: string): boolean {
+  return id.startsWith('cdfw-naip-2022-') || id.startsWith('naip-grid:') || id.startsWith('naip-overview:');
+}
+
 /** A single acquisition avoids temporal seams when it samples the sensor's
  * ground pixel at least as finely. Otherwise prefer higher spatial resolution. */
 export function resolvesSinglePass(source: ImagerySource, sensorSpacingM: number): boolean {

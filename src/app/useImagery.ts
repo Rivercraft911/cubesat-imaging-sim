@@ -4,7 +4,7 @@ import type { Scenario } from '../sim';
 import { regionalImage } from '../imagery/provider';
 import { useGroundDetail } from './useGroundDetail';
 
-export function useImagery(engine: React.RefObject<ImagingEngine | null>, version: number, scenario: Scenario, timeS: number, frozen = false) {
+export function useImagery(engine: React.RefObject<ImagingEngine | null>, version: number, scenario: Scenario, timeS: number, frozen = false, playbackRate = 0) {
   const [base, setBase] = useState<GroundImage | null>(null);
   const [fine, setFine] = useState<GroundImage | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +36,7 @@ export function useImagery(engine: React.RefObject<ImagingEngine | null>, versio
     };
   }, [version]);
   useEffect(() => { if (!frozen) engine.current?.setBaseGroundImage(base?.image.width ? base : null); }, [version, base, engine, frozen]);
-  const { detail, progress } = useGroundDetail(scenario, timeS, fine, base, version > 0);
+  const { detail, progress } = useGroundDetail(scenario, timeS, fine, base, version > 0, playbackRate);
   useLayoutEffect(() => { if (!frozen) engine.current?.setGroundImage(detail?.image.width ? detail : null); }, [version, detail, engine, frozen]);
   return {
     image: detail ?? base, baseImage: base,

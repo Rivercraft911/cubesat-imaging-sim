@@ -95,3 +95,18 @@ export function shotBounds(scenario: Scenario, timeS = 0): Bounds {
 export function contains(outer: Bounds, inner: Bounds): boolean {
   return outer[0] <= inner[0] && outer[1] <= inner[1] && outer[2] >= inner[2] && outer[3] >= inner[3];
 }
+
+const fadeMargin = (span: number) => Math.max(50, span * 0.1);
+
+export function withFadeMargin([w, s, e, n]: Bounds): Bounds {
+  const dx = fadeMargin(e - w), dy = fadeMargin(n - s);
+  return [w - dx, s - dy, e + dx, n + dy];
+}
+
+/** One means the full footprint clears the renderer's aerial fade margin. */
+export function coverageMargin(outer: Bounds, inner: Bounds): number {
+  const dx = fadeMargin(inner[2] - inner[0]);
+  const dy = fadeMargin(inner[3] - inner[1]);
+  return Math.min(1, (inner[0] - outer[0]) / dx, (outer[2] - inner[2]) / dx,
+    (inner[1] - outer[1]) / dy, (outer[3] - inner[3]) / dy);
+}

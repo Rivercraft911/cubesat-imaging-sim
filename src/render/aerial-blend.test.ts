@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { advanceAerialArrival, aerialArrivalWeight, isAerialImage, settledAerialWeight } from './aerial-blend';
+import { advanceAerialArrival, aerialArrivalWeight, settledAerialWeight } from './aerial-blend';
+import { isAerialImage } from '../imagery/lod';
 
 describe('whole-level aerial blending', () => {
   it('limits known aerial providers without changing satellite imagery', () => {

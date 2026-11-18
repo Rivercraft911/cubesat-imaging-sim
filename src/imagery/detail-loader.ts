@@ -1,6 +1,6 @@
 import type { GroundImage } from "../render";
-import { contains, type Bounds } from "./bounds";
-import { compareImagery, resolvesSinglePass, type ImagerySource } from "./lod";
+import { contains, coverageMargin, type Bounds } from "./bounds";
+import { compareImagery, isAerialImage, resolvesSinglePass, type ImagerySource } from "./lod";
 import { planShot, type ShotPlan } from "./plan";
 import {
   preparedShot,
@@ -23,7 +23,13 @@ type Providers = {
   full: typeof shotImage;
 };
 type Job = { plan: ShotPlan; abort: AbortController; started: number };
-type Prefetch = { bounds: Bounds; abort: AbortController; done: Promise<void> };
+// A covering crop at its edge can blend almost entirely into regional
+// imagery. Prefer equal-resolution coverage with room for the footprint.
+function compareCoverage(a: GroundImage, b: GroundImage, bounds: Bounds, spacing: number) {
+  return compareImagery(a, b, spacing) || coverageMargin(b.boundsMercator, bounds) - coverageMargin(a.boundsMercator, bounds);
+}
+export type PredictedFootprint = { bounds: Bounds; sensorSpacingM: number };
+type Prefetch = { pending: boolean; bounds: Bounds; abort: AbortController; done: Promise<void> };
 const close = (image: GroundImage) => {
   if ("close" in image.image) image.image.close();
 };
@@ -36,6 +42,8 @@ export class DetailLoader {
   private cache = new Map<string, GroundImage & ImagerySource>();
   private job: Job | null = null;
   private warm: Prefetch | null = null;
+  private handoff: GroundImage | null = null;
+  private nextMotionRequest = 0;
   private notBefore = 0;
   private retry = { key: "", after: 0, attempts: 0 };
   private disposed = false;
@@ -59,6 +67,7 @@ export class DetailLoader {
   }
   private show(image: GroundImage, message?: string, ready = true) {
     if (this.current !== image) {
+      if (image === this.handoff) this.handoff = null;
       this.current = image;
       this.publish(image);
     }
@@ -75,9 +84,17 @@ export class DetailLoader {
       (n, item) => n + item.image.width * item.image.height * 4,
       0,
     );
-    for (const [key, item] of this.cache) {
-      if (bytes <= 192 * 1024 * 1024 && this.cache.size <= 3) break;
+    const ordinaryBytes = 192 * 1024 * 1024;
+    const handoffBytes = 320 * 1024 * 1024;
+    // A 140 MiB campus bitmap and its 100 MiB successor cannot coexist
+    // inside the ordinary cache budget. Allow just this pair until the swap.
+    const entries = [...this.cache].sort(([, a], [, b]) =>
+      Number(a === this.handoff) - Number(b === this.handoff));
+    for (const [key, item] of entries) {
+      if (bytes <= ordinaryBytes && this.cache.size <= 3) break;
       if (item === this.current) continue;
+      if (item === this.handoff && bytes <= handoffBytes && this.cache.size <= 2) break;
+      if (item === this.handoff) this.handoff = null;
       this.cache.delete(key);
       bytes -= item.image.width * item.image.height * 4;
       close(item);
@@ -89,15 +106,25 @@ export class DetailLoader {
     this.cache.delete(image.id);
     this.cache.set(image.id, image);
   }
-  private cached(bounds: Bounds, spacing = Infinity, sensorSpacingM = 0) {
+  private cached(bounds: Bounds, sensorSpacingM = 0) {
     return [...this.cache.values()]
       .filter(
         (image) =>
           image.image.width > 0 &&
-          contains(image.boundsMercator, bounds) &&
-          (image.sourceResolutionM <= spacing || resolvesSinglePass(image, sensorSpacingM)),
+          contains(image.boundsMercator, bounds),
       )
-      .sort((a, b) => compareImagery(a, b, sensorSpacingM))[0];
+      .sort((a, b) => compareCoverage(a, b, bounds, sensorSpacingM))[0];
+  }
+  private displayCandidate(view: DetailView, finest?: GroundImage) {
+    if (!finest) return view.satellite;
+    // A primary crop entering its edge fade would soften the entire frame.
+    // Switch directly to another fully supported crop from the same survey.
+    if (!isAerialImage(finest.id) || coverageMargin(finest.boundsMercator, view.bounds) === 1) return finest;
+    return [...this.cache.values()]
+      .filter(item => item.image.width > 0 && isAerialImage(item.id)
+        && item.sourceResolutionM < view.satellite.sourceResolutionM
+        && coverageMargin(item.boundsMercator, view.bounds) === 1)
+      .sort((a, b) => a.sourceResolutionM - b.sourceResolutionM)[0] ?? finest;
   }
   private cancel() {
     this.job?.abort.abort();
@@ -109,10 +136,44 @@ export class DetailLoader {
   prefetch(bounds: Bounds, sensorSpacingM = 0) {
     if (this.disposed || this.cached(bounds)) return;
     if (this.warm && contains(this.warm.bounds, bounds)) return;
+    this.startPrefetch(bounds, signal =>
+      this.providers.prepared(bounds, signal, Infinity, { sensorSpacingM, prefetch: true }));
+  }
+
+  prefetchMotion(forecast: PredictedFootprint[]) {
+    if (!forecast.length || this.disposed || !this.view?.aerial ||
+      this.warm?.pending || this.now() < this.nextMotionRequest) return;
+    this.startPrefetch(forecast[0].bounds, async signal => {
+      for (const { bounds, sensorSpacingM } of forecast) {
+        signal.throwIfAborted();
+        let standby: GroundImage | undefined;
+        const image = await this.providers.prepared(bounds, signal, Infinity, {
+          sensorSpacingM, prefetch: true,
+          needsSource: source => {
+            const cached = this.cached(bounds, sensorSpacingM);
+            if (!cached) return true;
+            const rank = compareImagery(source, cached, sensorSpacingM);
+            if (rank < 0 || (rank === 0 &&
+              coverageMargin(source.boundsMercator, bounds) > coverageMargin(cached.boundsMercator, bounds))) return true;
+            if (cached !== this.current) standby = cached;
+            return false;
+          },
+        });
+        if (image) return image;
+        // Keep the nearest transition resident before warming a later one.
+        if (standby) {
+          this.handoff = standby;
+          break;
+        }
+      }
+      return null;
+    }, true);
+  }
+
+  private startPrefetch(bounds: Bounds, load: (signal: AbortSignal) => Promise<GroundImage | null>, motion = false) {
     this.warm?.abort.abort();
     const abort = new AbortController();
-    const done = this.providers
-      .prepared(bounds, abort.signal, Infinity, { sensorSpacingM, prefetch: true })
+    const done = load(abort.signal)
       .then((image) => {
         if (abort.signal.aborted || this.disposed) {
           if (image) close(image);
@@ -123,14 +184,19 @@ export class DetailLoader {
           close(image);
           return;
         }
+        if (motion) this.handoff = image;
         this.remember(image);
         if (this.view) this.update(this.view);
         this.trim();
       })
       .catch(() => {
+        if (motion && !abort.signal.aborted) this.nextMotionRequest = this.now() + 1500;
         // Foreground loading retries independently when the shot is needed.
+      })
+      .finally(() => {
+        if (this.warm?.abort === abort) this.warm.pending = false;
       });
-    this.warm = { bounds, abort, done };
+    this.warm = { bounds, abort, done, pending: true };
   }
 
   /** Apply the current footprint before the next draw without scheduling
@@ -149,19 +215,18 @@ export class DetailLoader {
       return;
     }
     const plan = planShot(view.bounds, view.desiredPixelM, view.latitudeDeg);
-    const suitable = this.cached(view.bounds, plan.sourceResolutionM * 1.05, view.sensorSpacingM);
-    if (suitable) {
+    const finest = this.cached(view.bounds, view.sensorSpacingM);
+    const best = this.displayCandidate(view, finest);
+    if (finest && (finest.sourceResolutionM <= plan.sourceResolutionM * 1.05 ||
+      resolvesSinglePass(finest, view.sensorSpacingM ?? 0))) {
       this.cancel();
       this.retry = { key: "", after: 0, attempts: 0 };
-      this.show(suitable, `${suitable.attribution} · cached`);
+      this.show(best, `${best.attribution} · cached`);
       return;
     }
     // Remove a now-too-small aerial rectangle immediately, even during debounce
     // or an outstanding network request. The fallback covers the complete view.
-    if (!this.hasAerial(view.bounds)) {
-      const fallback = this.cached(view.bounds, Infinity, view.sensorSpacingM) ?? view.satellite;
-      if (fallback !== this.current) this.show(fallback);
-    }
+    if (best !== this.current) this.show(best);
     if (this.job) {
       if (
         contains(this.job.plan.bounds, view.bounds) &&
@@ -206,16 +271,14 @@ export class DetailLoader {
     // Preserve adequate single-pass coverage and reject late coarse overviews.
     if (
       this.hasAerial(this.view!.bounds) &&
-      compareImagery(this.current!, image, this.view!.sensorSpacingM ?? 0) <= 0
+      compareCoverage(this.current!, image, this.view!.bounds, this.view!.sensorSpacingM ?? 0) <= 0
     ) {
       close(image);
       return false;
     }
     this.remember(image);
-    this.show(
-      image,
-      `${label} · ${((this.now() - job.started) / 1000).toFixed(1)} s`,
-    );
+    const draw = this.displayCandidate(this.view!, this.cached(this.view!.bounds, this.view!.sensorSpacingM));
+    this.show(draw, draw === image ? `${label} · ${((this.now() - job.started) / 1000).toFixed(1)} s` : draw.attribution);
     return true;
   }
   private async load(job: Job) {
@@ -320,5 +383,6 @@ export class DetailLoader {
     this.warm?.abort.abort();
     for (const image of this.cache.values()) close(image);
     this.cache.clear();
+    this.handoff = null;
   }
 }

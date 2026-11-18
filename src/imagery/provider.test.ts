@@ -52,7 +52,7 @@ it.each([
     .mockImplementationOnce(fetch)
     .mockResolvedValueOnce(Response.json([entry]))
     .mockImplementation(async () => new Response());
-  const bitmap = { width: 72, height: 72, close: vi.fn() };
+  const bitmap = { width: 100, height: 100, close: vi.fn() };
   vi.stubGlobal("fetch", request);
   vi.stubGlobal("createImageBitmap", vi.fn().mockResolvedValue(bitmap));
   const signal = new AbortController().signal;
@@ -125,7 +125,7 @@ it.each(["timeout", "caller cancellation"])(
       .mockResolvedValueOnce(Response.json([entry]))
       .mockImplementationOnce(async (_url, init) => stalledResponse(init!.signal!, beginRead))
       .mockResolvedValueOnce(new Response());
-    const decode = vi.fn().mockResolvedValue({ width: 72, height: 72, close: vi.fn() });
+    const decode = vi.fn().mockResolvedValue({ width: 100, height: 100, close: vi.fn() });
     vi.stubGlobal("fetch", request);
     vi.stubGlobal("createImageBitmap", decode);
 
@@ -138,7 +138,7 @@ it.each(["timeout", "caller cancellation"])(
     expect(decode).not.toHaveBeenCalled();
 
     await expect(preparedShot(bounds, new AbortController().signal)).resolves.toMatchObject({
-      id: "prepared:14:14:86:86",
+      id: "prepared:0:0:100:100",
     });
     expect(request.mock.calls.map(([url]) => url)).toEqual([manifestUrl, rasterUrl, rasterUrl]);
   },
@@ -163,5 +163,31 @@ it("selects a single pass when it covers the footprint at the sensor's spacing",
   expect(decode.mock.lastCall).toHaveLength(1);
   await expect(preparedShot(bounds, signal, Infinity, {
     sensorSpacingM: 1.5,
-  })).resolves.toMatchObject({ id: "prepared:14:14:86:86" });
+  })).resolves.toMatchObject({ id: "prepared:0:0:100:100" });
+});
+
+it("retains prepared Stanford coverage through the outbound 2000 mm view", async () => {
+  const { default: manifest } = await import("../../public/assets/shots/manifest.json");
+  const { createDefaultScenario } = await import("../sim");
+  const { shotBounds, contains } = await import("./bounds");
+  const source = manifest.find(item => item.id === "cdfw-naip-2022-stanford")!;
+  vi.stubGlobal("fetch", vi.fn(async (url) =>
+    url === manifestUrl ? Response.json([source]) : new Response()));
+  const decode = vi.fn(async (_blob, _left, _top, width: number, height: number) => ({ width, height }));
+  vi.stubGlobal("createImageBitmap", decode);
+  const scenario = createDefaultScenario();
+  scenario.cameras.find(c => c.id === "main")!.lens.focalLengthMm = 2000;
+  const image = await preparedShot(shotBounds(scenario, 0), new AbortController().signal);
+  expect(image).toBeTruthy();
+  expect(contains(image!.boundsMercator, shotBounds(scenario, 50))).toBe(true);
+  expect(image!.image.width * image!.image.height).toBeLessThan(source.width * source.height / 4);
+});
+
+it("checks the best available local source before fetching another raster", async () => {
+  const request = vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json([entry]));
+  vi.stubGlobal("fetch", request);
+  const needsSource = vi.fn(() => false);
+  await expect(preparedShot(bounds, new AbortController().signal, Infinity, { needsSource })).resolves.toBeNull();
+  expect(needsSource).toHaveBeenCalledWith(entry);
+  expect(request).toHaveBeenCalledTimes(1);
 });

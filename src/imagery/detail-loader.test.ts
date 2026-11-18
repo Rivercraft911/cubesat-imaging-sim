@@ -365,3 +365,148 @@ it("closes a pending mosaic when the frame advances outside it between polls", a
   expect(full).toHaveBeenCalledOnce();
   loader.dispose();
 });
+
+it("uses the covering crop with more margin when cached sources have the same resolution", async () => {
+  const left = image("left", [0, 0, 1200, 2000], 1);
+  const right = image("right", [600, 0, 2200, 2000], 1);
+  const prepared = vi.fn().mockResolvedValueOnce(left).mockResolvedValueOnce(right);
+  const publish = vi.fn();
+  const loader = new DetailLoader(publish, vi.fn(), { prepared, overview: vi.fn(), full: vi.fn() });
+  loader.update(view([100, 400, 500, 800]));
+  await settle();
+  loader.update(view([1600, 400, 2000, 800]));
+  await settle();
+  // Both crops cover the footprint. Its east edge touches the older crop.
+  loader.track(view([800, 400, 1200, 800]));
+  expect(publish.mock.lastCall?.[0]).toBe(right);
+  loader.dispose();
+});
+
+it("warms the next local crop during playback while remote refinement is unavailable", async () => {
+  const outgoing = image("outgoing", [0, 0, 1200, 1200], 1.5);
+  const incoming = image("incoming", [-500, -500, 2000, 2000], 1.5);
+  const decode = deferred<GroundImage>();
+  const prepared = vi.fn<typeof import("./provider").preparedShot>()
+    .mockResolvedValueOnce(outgoing)
+    .mockReturnValueOnce(decode.promise);
+  const failed = vi.fn(async () => { throw new Error("offline"); });
+  const publish = vi.fn();
+  const loader = new DetailLoader(publish, vi.fn(), { prepared, full: failed, overview: failed });
+  const opening = view([100, 100, 900, 900]);
+  loader.update(opening);
+  await settle();
+  expect(publish.mock.lastCall?.[0]).toBe(outgoing);
+  const predicted: Bounds = [100, 100, 1250, 1250];
+  loader.prefetchMotion([{ bounds: predicted, sensorSpacingM: 1 }]);
+  loader.prefetchMotion([{ bounds: [90, 90, 1300, 1300], sensorSpacingM: 1 }]);
+  expect(prepared).toHaveBeenCalledTimes(2);
+  expect(prepared.mock.lastCall?.[2]).toBe(Infinity);
+  expect(prepared.mock.lastCall?.[1].aborted).toBe(false);
+  loader.track(view([100, 100, 1100, 1100]));
+  expect(publish.mock.lastCall?.[0]).toBe(outgoing);
+  decode.resolve(incoming);
+  await settle();
+  loader.track(view([100, 100, 1195, 1195]));
+  loader.track(view(predicted));
+  expect(publish.mock.calls.map(([raster]) => raster.id)).toEqual(["satellite", "outgoing", "incoming"]);
+  loader.dispose();
+});
+
+it("warms finer inbound coverage even when coarse imagery covers the entire pass", async () => {
+  const broad = image("broad", [-5000, -5000, 5000, 5000], 10);
+  const fine = image("fine", [-500, -500, 500, 500], 1);
+  const publish = vi.fn();
+  let now = 0;
+  const prepared = vi.fn<typeof import("./provider").preparedShot>()
+    .mockResolvedValueOnce(broad)
+    .mockImplementation(async (_bounds, _signal, _spacing, options) =>
+      options?.needsSource?.(fine) ? fine : null);
+  const failed = vi.fn(async () => { throw new Error("offline"); });
+  const loader = new DetailLoader(publish, vi.fn(), { prepared, full: failed, overview: failed }, () => now);
+  loader.update(view([-1000, -1000, 1000, 1000]));
+  await settle();
+  const ahead: Bounds = [-200, -200, 200, 200];
+  loader.prefetchMotion([{ bounds: ahead, sensorSpacingM: 1 }]);
+  await settle();
+  loader.track(view(ahead));
+  expect(publish.mock.lastCall?.[0]).toBe(fine);
+  now = 1000;
+  loader.prefetchMotion([{ bounds: ahead, sensorSpacingM: 1 }]);
+  await settle();
+  expect(prepared.mock.lastCall?.[3]?.needsSource?.(fine)).toBe(false);
+  loader.dispose();
+});
+
+it("keeps one large standby raster until its outgoing predecessor is released", async () => {
+  const opening = view([0, 0, 1000, 1000]);
+  const next = view([1500, 1500, 2500, 2500]);
+  const outgoing = image("large-outgoing", [-500, -500, 1300, 1300], 1);
+  const incoming = image("large-incoming", [1100, 1100, 3000, 3000], 1);
+  for (const item of [outgoing, incoming])
+    Object.assign(item.image, { width: 6000, height: 6000 });
+  const prepared = vi.fn<typeof import("./provider").preparedShot>()
+    .mockResolvedValueOnce(outgoing).mockResolvedValueOnce(incoming);
+  const publish = vi.fn();
+  const loader = new DetailLoader(publish, vi.fn(), { prepared, overview: vi.fn(), full: vi.fn() });
+  loader.update(opening);
+  await settle();
+  loader.prefetchMotion([{ bounds: next.bounds, sensorSpacingM: 1 }]);
+  await settle();
+  expect((incoming.image as ImageBitmap).close).not.toHaveBeenCalled();
+  loader.track(next);
+  expect(publish.mock.lastCall?.[0]).toBe(incoming);
+  expect((outgoing.image as ImageBitmap).close).toHaveBeenCalledOnce();
+  loader.dispose();
+});
+
+it("switches between overlapping NAIP resolutions before their whole-frame edge fade", async () => {
+  const campus = image("cdfw-naip-2022-campus", [0, 0, 1000, 1000], 0.6);
+  const wider = image("cdfw-naip-2022-wider", [-300, -300, 1600, 1600], 1.5);
+  const prepared = vi.fn().mockResolvedValueOnce(campus).mockResolvedValueOnce(wider);
+  const full = vi.fn();
+  const publish = vi.fn();
+  const loader = new DetailLoader(publish, vi.fn(), { prepared, overview: vi.fn(), full });
+  const centered = view([250, 250, 750, 750]);
+  loader.update(centered);
+  await settle();
+  loader.prefetchMotion([{ bounds: [0, 0, 1100, 1100], sensorSpacingM: 0.8 }]);
+  await settle();
+  // The campus image still covers every ray, but its east edge would blur the entire frame.
+  loader.track(view([150, 150, 985, 850]));
+  loader.track(centered);
+  expect(publish.mock.calls.map(([item]) => item.id)).toEqual([
+    "satellite", campus.id, wider.id, campus.id,
+  ]);
+  expect(full).not.toHaveBeenCalled();
+  loader.dispose();
+});
+
+it("warms the nearest missing crop before a farther source at fast playback", async () => {
+  const a = image("a", [-300, -300, 1100, 1100], 0.6);
+  const b = image("b", [-300, -300, 1600, 1600], 1.5);
+  const c = image("c", [-300, -300, 4000, 4000], 7);
+  const decoded: string[] = [];
+  const prepared: typeof import("./provider").preparedShot = async (bounds, _signal, finerThan = Infinity, options) => {
+    const source = [a, b, c].find(item => item.boundsMercator[2] >= bounds[2])!;
+    if (source.sourceResolutionM >= finerThan || options?.needsSource?.(source) === false) return null;
+    decoded.push(source.id);
+    return source;
+  };
+  const loader = new DetailLoader(vi.fn(), vi.fn(), { prepared, overview: vi.fn(), full: vi.fn() });
+  const opening = view([0, 0, 900, 900]);
+  const near = view([0, 0, 1400, 1400]);
+  const far = view([0, 0, 2200, 2200]);
+  const forecast = [opening, near, far].map(({ bounds }) => ({ bounds, sensorSpacingM: 1 }));
+  loader.update(opening);
+  await settle();
+  loader.prefetchMotion(forecast);
+  await settle();
+  loader.prefetchMotion(forecast);
+  await settle();
+  expect(decoded).toEqual(["a", "b"]);
+  loader.track(near);
+  loader.prefetchMotion(forecast.slice(1));
+  await settle();
+  expect(decoded).toEqual(["a", "b", "c"]);
+  loader.dispose();
+});
