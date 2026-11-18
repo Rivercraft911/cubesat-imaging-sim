@@ -16,6 +16,12 @@ export function createAerialTransfer(context: AtmosphereContext) {
   const bind = (node: RGBNode) =>
     nodeContext(node, { getAtmosphere: () => context }) as unknown as RGBNode;
   return {
+    initializeParameters() {
+      // Material branches share Takram's parameter struct. Emit its complete
+      // initializer in the parent shader scope so ground, sky and cloud rays
+      // all see the same physical constants.
+      (context.parametersNode as unknown as Node).toStack();
+    },
     toPoint(color: RGBNode, originM: RGBNode, pointM: RGBNode, sun: RGBNode) {
       const transfer = getIndirectLuminanceToPoint(
         originM.add(correction).mul(0.001),

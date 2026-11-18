@@ -146,6 +146,7 @@ export function makeSensorMaterial(
         });
       }
       if (contextual) {
+        aerial.initializeParameters();
         const normal = surface
           .mul(vec3(1, 1, 1 / 0.9966471893352525 ** 2))
           .normalize();

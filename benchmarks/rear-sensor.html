@@ -1,0 +1,49 @@
+<!doctype html>
+<meta charset="utf-8">
+<link rel="icon" href="data:,">
+<title>Wide B sky and spacecraft regression</title>
+<button>Check Wide B</button>
+<pre>Ready</pre>
+<canvas width="400" height="400"></canvas>
+<script type="module">
+  import { createImagingEngine } from '../src/render';
+  import { createOpeningScenario } from '../src/sim/pass-presets';
+  import { cameraPose, getSensor, projectPoint, sampleState } from '../src/sim';
+  import { add, scale } from '../src/sim/math';
+
+  const button = document.querySelector('button');
+  const report = document.querySelector('pre');
+  button.onclick = async () => {
+    button.disabled = true;
+    let engine;
+    try {
+      const scenario = createOpeningScenario();
+      const sample = sampleState(scenario, 0);
+      const camera = scenario.cameras.find(c => c.id === 'wideB');
+      const sensor = getSensor(camera.sensorId, scenario.customSensor);
+      const pose = cameraPose(sample, camera);
+      const sun = projectPoint(camera, sensor, pose, add(pose.positionEcefM, scale(sample.sunDirectionEcef, 1e9)));
+      engine = await createImagingEngine(document.createElement('canvas'));
+      engine.updateScenario(scenario, 0);
+      const context = document.querySelector('canvas').getContext('2d');
+      const size = context.canvas.width;
+      context.drawImage(await engine.getEncoderCanvas('wideB', size, size, 0), 0, 0);
+      const { data } = context.getImageData(0, 0, size, size);
+      let litPixels = 0;
+      for (let i = 0; i < size * size; i++) {
+        // Exclude the solar disk and its filtered footprint. The rearward
+        // opening view looks into space and includes physical spacecraft.
+        if (sun && Math.hypot(i % size - sun[0] * size / sensor.width,
+          Math.floor(i / size) - sun[1] * size / sensor.height) < 10) continue;
+        if (Math.max(data[4*i], data[4*i+1], data[4*i+2]) > 8) litPixels++;
+      }
+      if (!litPixels) throw new Error('Wide B lost the illuminated spacecraft against open sky.');
+      report.textContent = 'Pass. ' + litPixels + ' illuminated pixels outside the solar disk.';
+    } catch (error) {
+      report.textContent = 'Failed. ' + error;
+    } finally {
+      engine?.dispose();
+      button.disabled = false;
+    }
+  };
+</script>
